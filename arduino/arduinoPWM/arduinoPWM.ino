@@ -1,3 +1,5 @@
+#include <Wire.h>
+
 /* Arduino PWM 
  * Microcomputer-Controlled Car Project
  * University of Michigan - Tilbury Research Group
@@ -178,13 +180,25 @@ void setSpeed(unsigned char dutyCycle)
  * 
  * args - ?????????????
  *
+    ENTER_IDLE_MODE   = 0x00,
+    ENTER_RC_MODE     = 0x01,
+    ENTER_RPI_MODE    = 0x02,
+    ENTER_SLEEP_MODE  = 0x03,
+    RETURN_STEER_DC   = 0x04,
+    RETURN_MOTOR_DC   = 0x05,
+    SET_STEER_DC      = 0x06,
+    SET_MOTOR_DC      = 0x07
  */
 void masterReadHandler(/*args*/)
 {
     // NOT YET IMPLEMENTED!!!!!!!!!
     // Call different function based on command received
     switch (cmd) {
-    case 0x00:
+    case RETURN_STEER_DC:
+        // ???????
+        break;
+    case RETURN_MOTOR_DC:
+        // ???????
         break;
     default:
         break; 
@@ -196,15 +210,40 @@ void masterReadHandler(/*args*/)
  * 
  * args - ?????????????
  *
+    ENTER_IDLE_MODE   = 0x00,
+    ENTER_RC_MODE     = 0x01,
+    ENTER_RPI_MODE    = 0x02,
+    ENTER_SLEEP_MODE  = 0x03,
+    RETURN_STEER_DC   = 0x04,
+    RETURN_MOTOR_DC   = 0x05,
+    SET_STEER_DC      = 0x06,
+    SET_MOTOR_DC      = 0x07
  */
 void masterWriteHandler(/*args*/)
 {
     // NOT YET IMPLEMENTED!!!!!!!!!
     // Call different function based on command received
     switch (cmd) {
-    case 0x00:
+    case ENTER_IDLE_MODE:
+        mode = IDLE;
         break;
-    default:
+    case ENTER_RC_MODE:
+        mode = RC;
+        break;
+    case ENTER_RPI_MODE:
+        mode = RPI;
+        break;
+    case ENTER_SLEEP_MODE:
+        mode = SLEEP;
+        break;
+    case SET_STEER_DC:
+        // ????????
+        break;
+    case SET_MOTOR_DC:
+        // ????????
+        break;
+    default: // Invalid command
+        // Do nothing
         break; 
     }
 }
