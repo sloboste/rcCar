@@ -27,17 +27,16 @@ class RcCar:
         # Setup RPi I2C bus
         self.bus = smbus.SMBus(1) # /dev/i2c-1 
         # "Registers" in Arduino
-        self.REG_ID   = 0x00 
-        self.REG_MODE = 0x01
-        # Commands to send to Arduino FIXME
-        self.ENTER_IDLE_MODE   = 0x00
-        self.ENTER_RC_MODE     = 0x01
-        self.ENTER_RPI_MODE    = 0x02
-        self.ENTER_SLEEP_MODE  = 0x03
-        self.RETURN_STEER_DC   = 0x04
-        self.RETURN_MOTOR_DC   = 0x05
-        self.SET_STEER_DC      = 0x06
-        self.SET_MOTOR_DC      = 0x07
+        self.REG_ID        = 0x00 
+        self.REG_MODE      = 0x01
+        self.REG_STEER     = 0x02
+        self.REG_SPEED     = 0x03
+        self.REG_NEXT_READ = 0x04
+        # Values to write to Arduino mode "register"
+        self.MODE_IDLE   = 0x00
+        self.MODE_RC     = 0x01
+        self.MODE_RPI    = 0x02
+        self.MODE_SLEEP  = 0x03
     
 
     # Public: Verify the id number of the Arduino module
@@ -47,6 +46,8 @@ class RcCar:
     #             "sleep" - low power mode; can't do anything until woken up
     #
     def verifyID():
+        # Tell Arduino to send id on next read
+        bus.write_byte(self.ADDR, self.REG_NEXT_READ)
         # Read id number from Arduino
         number = bus.read_byte_data(self.ADDR, self.REG_ID) 
         # Check if response was correct
@@ -64,33 +65,38 @@ class RcCar:
     #
     def setMode(mode):
         # Validate mode
-        cmd = 0xFF
+        m = 0xFF
         if (mode == "idle"):
-            cmd = self.ENTER_IDLE_MODE
-        else if (mode == "rc"):
-            cmd = self.ENTER_RC_MODE
-        else if (mode == "rpi"):
-            cmd = self.ENTER_RPI_MODE
-        else if (mode == "sleep"):
-            cmd = self.ENTER_SLEEP_MODE
+            cmd = self.MODE_IDLE
+        elif (mode == "rc"):
+            cmd = self.MODE_RC
+        elif (mode == "rpi"):
+            cmd = self.MODE_RPI
+        elif (mode == "sleep"):
+            cmd = self.MODE_SLEEP
         else:
             raise ValueError('mode not recognized')
         # Write to Arduino
-        bus.write_byte_data(self.ADDR, self.REG_MODE, cmd)
+        bus.write_byte_data(self.ADDR, self.REG_MODE, m)
 
 
     # Public: Set the motor speed of the RC car as a percentage of the maximum
     #
     # Note: The Arduino will not respond unless it is in RPi mode
     #
+    # direction - go "forward" = 0 or "reverse" = 1
+    #
     # percentage - range 0 to 100 percent
     #
-    def setSpeed(percentage):
+    def setSpeed(direction, percentage):
+        # Validate direction
+        if ( (direction == 0) and (direction != 1) ):
+            raise ValueError('directon must be either 0 = forward or 1 = reverse')
         # Validate percentage
         if ( (percentage < 0) or (percentage > 100) ):
             raise ValueError('percentage must be between 0 and 100')
         # Write to Arduino
-        bus.write_byte_data(self.ADDR, self.REG_SPEED, percentage)
+        bus.write_byte_data(self.ADDR, self.REG_SPEED, direction, percentage)
 
 
     # Public: Set the direction for the RC car to turn as a percentage of the
@@ -98,17 +104,17 @@ class RcCar:
     #
     # Note: The Arduino will not respond unless it is in RPi mode
     #
-    # direction - turn "left" or "right"
+    # direction - turn "left" = 0 or "right" = 1
     #
     # percentage - range 0 to 100 percent
     #
     def setSteer(direction, percentage):
         # Validate direction
-        if ( (direction != "right") and (direction != "left") ):
-            raise ValueError('directon must be either right or left')
+        if ( (direction == 0) and (direction != 1) ):
+            raise ValueError('directon must be either 0 = left or 1 = right')
         # Validate percentage
         if ( (percentage < 0) or (percentage > 100) ):
             raise ValueError('percentage must be between 0 and 100')
         # Write to Arduino
-        bus.write_byte_data(self.ADDR, self.REG_STEER, percentage)
+        bus.write_byte_data(self.ADDR, self.REG_STEER, direction, percentage)
 
