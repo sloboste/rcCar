@@ -45,7 +45,7 @@ class RcCar:
     #             "rpi"   - respond to commands from the RPi
     #             "sleep" - low power mode; can't do anything until woken up
     #
-    def verifyID():
+    def verifyID(self):
         # Tell Arduino to send id on next read
         bus.write_byte(self.ADDR, self.REG_NEXT_READ)
         # Read id number from Arduino
@@ -63,7 +63,7 @@ class RcCar:
     #             "rpi"   - respond to commands from the RPi
     #             "sleep" - low power mode; can't do anything until woken up
     #
-    def setMode(mode):
+    def setMode(self, mode):
         # Validate mode
         m = 0xFF
         if (mode == "idle"):
@@ -88,7 +88,7 @@ class RcCar:
     #
     # percentage - range 0 to 100 percent
     #
-    def setSpeed(direction, percentage):
+    def setSpeed(self, direction, percentage):
         # Validate direction
         if ( (direction == 0) and (direction != 1) ):
             raise ValueError('directon must be either 0 = forward or 1 = reverse')
@@ -108,7 +108,7 @@ class RcCar:
     #
     # percentage - range 0 to 100 percent
     #
-    def setSteer(direction, percentage):
+    def setSteer(self, direction, percentage):
         # Validate direction
         if ( (direction == 0) and (direction != 1) ):
             raise ValueError('directon must be either 0 = left or 1 = right')
