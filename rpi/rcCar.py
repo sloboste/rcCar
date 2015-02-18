@@ -47,9 +47,9 @@ class RcCar:
     #
     def verifyID(self):
         # Tell Arduino to send id on next read
-        bus.write_byte(self.ADDR, self.REG_NEXT_READ)
+        self.bus.write_byte(self.ADDR, self.REG_NEXT_READ)
         # Read id number from Arduino
-        number = bus.read_byte_data(self.ADDR, self.REG_ID) 
+        number = self.bus.read_byte_data(self.ADDR, self.REG_ID) 
         # Check if response was correct
         if (number == self.ID):
             return True
@@ -77,7 +77,7 @@ class RcCar:
         else:
             raise ValueError('mode not recognized')
         # Write to Arduino
-        bus.write_byte_data(self.ADDR, self.REG_MODE, m)
+        self.bus.write_byte_data(self.ADDR, self.REG_MODE, m)
 
 
     # Public: Set the motor speed of the RC car as a percentage of the maximum
@@ -96,7 +96,7 @@ class RcCar:
         if ( (percentage < 0) or (percentage > 100) ):
             raise ValueError('percentage must be between 0 and 100')
         # Write to Arduino
-        bus.write_byte_data(self.ADDR, self.REG_SPEED, direction, percentage)
+        self.bus.write_byte_data(self.ADDR, self.REG_SPEED, direction, percentage)
 
 
     # Public: Set the direction for the RC car to turn as a percentage of the
@@ -116,5 +116,5 @@ class RcCar:
         if ( (percentage < 0) or (percentage > 100) ):
             raise ValueError('percentage must be between 0 and 100')
         # Write to Arduino
-        bus.write_byte_data(self.ADDR, self.REG_STEER, direction, percentage)
+        self.bus.write_byte_data(self.ADDR, self.REG_STEER, direction, percentage)
 
