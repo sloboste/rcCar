@@ -7,6 +7,15 @@
 
 import smbus
 
+# How to handle the ioerror errno 5
+#
+# try:
+#   bus.read/write(blah)
+# except:
+#   subprocess.call(['i2cdetect', '-y', '1'])
+#   flag = 1 # optional flag to signal code to redo bus transaction
+#
+
 # RcCar: 
 # Module for control of an RC car with a RPi. The car has an Arduino Pro Mini 
 # on board to handle PWM which communicates with the RPi via I2C.

@@ -36,6 +36,10 @@ const unsigned char REG_STEER     = 0x02;
 const unsigned char REG_SPEED     = 0x03;
 const unsigned char REG_NEXT_READ = 0x04;
 
+// The states of the pwm pins (pwm done in software due to atmega168 limitations)
+volatile bool pwmState_s = HIGH;
+volatile bool pwmState_m = HIGH;
+
 /* Interrupt driven input that allows the I2C master to wake the Arduino from 
  * sleep mode
  */
@@ -48,11 +52,9 @@ unsigned char mode;
 // Note REG_NEXT_READ is used to represent "invalid" i.e., not supposed to send
 unsigned char nextRead = REG_NEXT_READ; 
 
-/*
 // Duty cycles for steering and motor PWM signals
-unsigned char steer = 0;
-unsigned char speed = 0;
-*/
+unsigned char steerDC = 0;
+unsigned char speedDC = 0;
 
 /* Arduino setup function. Runs on device power on before the loop function is
  * called.
@@ -71,6 +73,9 @@ void setup()
     // Register handlers for master read and write
     Wire.onRecieve(masterWriteHandler);
     Wire.onRequest(masterReadHandler);
+
+    // Register handler for timer interrupt (software pwm)
+    //FIXME
 }
 
 /* Arduino loop function. This is the code that runs continuously on the micro-
