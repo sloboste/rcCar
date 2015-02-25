@@ -14,14 +14,14 @@ const unsigned char SELF_I2C_ADDR = 0x10;
 const unsigned char SELF_CHIP_ID = 0xAD; 
 
 // Pins used on  the Arduino
-const unsigned char PIN_I2C_SDA   = 0; //FIXME
-const unsigned char PIN_I2C_SCL   = 0; //FIXME
-const unsigned char PIN_INTRPT    = 0; //FIXME
-const unsigned char PIN_PWM_IN_S  = 0; //FIXME
-const unsigned char PIN_PWM_IN_M  = 0; //FIXME
-const unsigned char PIN_PWM_OUT_S = 0; //FIXME
-const unsigned char PIN_PWM_OUT_M = 0; //FIXME
-const unsigned char PIN_LED       = 0; //FIXME
+const unsigned char PIN_I2C_SDA   = 0; //FIXME analog pin A4
+const unsigned char PIN_I2C_SCL   = 0; //FIXME analog pin A5
+const unsigned char PIN_INTRPT    = 0; //FIXME digial pin 2 or 3
+const unsigned char PIN_PWM_IN_S  = 0; //FIXME digital pin 3, 4, 5, 6, 9, or 10
+const unsigned char PIN_PWM_IN_M  = 0; //FIXME ""
+const unsigned char PIN_PWM_OUT_S = 0; //FIXME ""
+const unsigned char PIN_PWM_OUT_M = 0; //FIXME ""
+const unsigned char PIN_LED       = 0; //FIXME digital pin 14
 
 // The valid modes that the Arduino can be in 
 const unsigned char MODE_IDLE  = 0x00;
