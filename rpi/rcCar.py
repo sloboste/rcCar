@@ -36,8 +36,7 @@ class RcCar:
         self.MODE_IDLE   = 0x00
         self.MODE_RC     = 0x01
         self.MODE_RPI    = 0x02
-        self.MODE_SLEEP  = 0x03
-    
+        self.MODE_SLEEP  = 0x03    
 
     # Public: Verify the id number of the Arduino module
     #             "idle"  - do nothing
@@ -47,9 +46,10 @@ class RcCar:
     #
     def verifyID(self):
         # Tell Arduino to send id on next read
-        self.bus.write_byte(self.ADDR, self.REG_NEXT_READ)
+        self.bus.write_byte_data(self.ADDR, self.REG_NEXT_READ, self.REG_ID)
         # Read id number from Arduino
-        number = self.bus.read_byte_data(self.ADDR, self.REG_ID) 
+        # number = self.bus.read_byte_data(self.ADDR, self.REG_ID) 
+        number = self.bus.read_byte(self.ADD) # Arduino doesn't accpet read regs 
         # Check if response was correct
         if (number == self.ID):
             return True

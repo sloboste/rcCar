@@ -3,7 +3,7 @@
 
 import rcCar
 
-car = RcCar("SC10")
+car = rcCar.RcCar("SC10")
 verified = car.verifyID()
 print 'car id verified = ' + verified
 
