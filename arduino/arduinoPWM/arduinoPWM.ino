@@ -1,11 +1,13 @@
-#include <Wire.h>
-
 /* Arduino PWM 
  * Microcomputer-Controlled Car Project
  * University of Michigan - Tilbury Research Group
  * Author: Steven Sloboda
- * Version: 0.1
+ * Version: 0.2
  */
+
+#include <Adafruit_PWMServoDriver.h>
+#include <Wire.h>
+
 
 // 7-bit I2C address of Arduino (arbitrarily assigned)
 const unsigned char SELF_I2C_ADDR = 0x10;
@@ -14,20 +16,18 @@ const unsigned char SELF_I2C_ADDR = 0x10;
 const unsigned char SELF_CHIP_ID = 0xAD; 
 
 // Pins used on  the Arduino
-const unsigned char PIN_I2C_SDA   = 0; //FIXME analog pin A4
-const unsigned char PIN_I2C_SCL   = 0; //FIXME analog pin A5
-const unsigned char PIN_INTRPT    = 0; //FIXME digial pin 2 or 3
+const unsigned char PIN_I2C_SDA   = A4; //FIXME analog pin A4
+const unsigned char PIN_I2C_SCL   = A5; //FIXME analog pin A5
 const unsigned char PIN_PWM_IN_S  = 0; //FIXME digital pin 3, 4, 5, 6, 9, or 10
 const unsigned char PIN_PWM_IN_M  = 0; //FIXME ""
 const unsigned char PIN_PWM_OUT_S = 0; //FIXME ""
 const unsigned char PIN_PWM_OUT_M = 0; //FIXME ""
-const unsigned char PIN_LED       = 0; //FIXME digital pin 14
+const unsigned char PIN_LED       = 14; //FIXME digital pin 14
 
 // The valid modes that the Arduino can be in 
 const unsigned char MODE_IDLE  = 0x00;
 const unsigned char MODE_RC    = 0x01;
 const unsigned char MODE_RPI   = 0x02;
-const unsigned char MODE_SLEEP = 0x03;
 
 // The "registers" in the Arduino that the I2C master can w/r 
 const unsigned char REG_ID        = 0x00;
@@ -35,15 +35,6 @@ const unsigned char REG_MODE      = 0x01;
 const unsigned char REG_STEER     = 0x02;
 const unsigned char REG_SPEED     = 0x03;
 const unsigned char REG_NEXT_READ = 0x04;
-
-// The states of the pwm pins (pwm done in software due to atmega168 limitations)
-volatile bool pwmState_s = HIGH;
-volatile bool pwmState_m = HIGH;
-
-/* Interrupt driven input that allows the I2C master to wake the Arduino from 
- * sleep mode
- */
-volatile bool wakeup;
 
 // Mode that the Arduino is currently in
 unsigned char mode;
@@ -54,7 +45,27 @@ unsigned char nextRead = REG_NEXT_READ;
 
 // Duty cycles for steering and motor PWM signals
 unsigned char steerDC = 0;
-unsigned char speedDC = 0;
+unsigned char motorDC = 0;
+
+// Max and min high pulse widths for the steering and motor PWM signals
+// Out of 4096 i think...
+// FIXME
+const unsigned int STEER_PW_MIN = 0;
+const unsigned int STEER_PW_MAX = 0;
+const unsigned int MOTOR_PW_MIN = 0;
+const unsigned int MOTOR_PW_MAX = 0;
+
+// Center position for steering and 0% throttle
+const unsigned char STEER_DC_NEUTRAL = 50; // FIXME 
+const unsigned char MOTOR_DC_NEUTRAL = 50; // FIXME
+
+// Frequency of the steerning and motor PWM signals
+const unsigned char PWM_FREQ = 72; // Hz
+
+// The steering and motor PWM channels on the pwm module
+const unsigned char STEER_CHANNEL = 0;
+const unsigned char MOTOR_CHANNEL = 1;
+
 
 /* Arduino setup function. Runs on device power on before the loop function is
  * called.
@@ -64,9 +75,6 @@ void setup()
     // Initialize mode
     mode = IDLE;
 
-    // Initialize wakeup
-    wakeup = false;
-  
     // Set i2c bus address
     Wire.begin(SELF_I2C_ADDR); 
     
@@ -74,8 +82,13 @@ void setup()
     Wire.onRecieve(masterWriteHandler);
     Wire.onRequest(masterReadHandler);
 
-    // Register handler for timer interrupt (software pwm)
-    //FIXME
+    // Start up the pwm module
+    pwm.begin();
+
+    // Set the adafruit pwm module to the correct frequency // FIXME
+    setPWMFreq(PWM_FREQ);
+
+    return;
 }
 
 /* Arduino loop function. This is the code that runs continuously on the micro-
@@ -83,56 +96,44 @@ void setup()
  */
 void loop()
 {
-    /*
-    // Check if we have just woken up
-    if (wakeup) {
-        // Reset wakeup flag
-        wakeup = false;
-
-        // Default to IDLE mode after being woken up
-        mode = IDLE
-
-        // Do something else FIXME
-
-    }
-
     // Take appropriate action based on mode
     switch (mode) {
+
     case RC:
-        // Intercept PWM values from radio reciever
-        interceptPWM(steer, motor);
+        // Intercept PWM duty cycles from radio reciever
+        interceptPWM(steerDC, motorDC);
+            
         // Write these values to the motor controller and steering servo
-        setSteer(steer);
-        setSpeed(speed);
+        writeToSteerServo(steerDC);
+        writeToMotorController(motorDC);
+        
         break;
+                
     case RPI:
-        // Write values to motor controller and steering servo based on RPI
-        // steer and speed get values when commands are received from I2C master
-        setSteer(steer);
-        setSpeed(speed);
-        break;
-    case SLEEP:
-        // Make sure the servos dont do anything FIXME
+        // steerDC will have been set by RPI command
+        // motorDC will have been set by RPI command
 
-        // Put the arduino to sleep // FIXME
-        sleep_enable();
-        attachInterrupt(PIN_INTRPT, _ISR_wakeupHandler, RISING);
-        set_sleep_mode( look up args );
-        noInterrupts(); // Same as cli();
-        sleep_bod_disable(); // Disable brown out detection to save power
-        interrupts(); // Same as sei();
-        sleep_cpu();
-        // Wakes up here
+        // Write these values to the motor controller and steering servo
+        writeToSteerServo(steerDC);
+        writeToMotorController(motorDC);
+        
         break;
-    default: // (mode == IDLE) || (mode == undefined) 
-        // Do nothing
-        // Or maybe blink the led so we know it is idle and not fried
-        break;
-    }
-    */
-}
 
-// FUNCTIONS DEFINED BELOW
+    default: // (mode == IDLE) || (mode == some_undefined_value) 
+        // Make sure steering and motor servos are not doing anything
+        steerDC = STEER_DC_NEUTRAL; 
+        motorDC = MOTOR_DC_NEUTRAL;
+
+        // Write these values to the motor controller and steering servo
+        writeToSteerServo(steerDC);
+        writeToMotorController(motorDC);
+
+        break;
+        
+    } // switch
+
+} // loop
+
 
 /* Public: Read the PWM signals that are being sent from the radio transmitter
  *         to the car's radio receiver.
@@ -149,10 +150,19 @@ void loop()
  * motor - Will hold the duty cycle of the PWM signal intended for the motor
  *         controller when the function returns. 
  */
-void interceptPWM(unsigned char &steering, unsigned char &motor)
+void interceptPWM(unsigned char &steering, unsigned char &motor) // FIXME
 {
-    // NOT YET IMPLEMENTED!!!!!!!!!
-}
+    // Read pulse width of the steering and motor signals
+    unsigned int s = pulseIn(PIN_PWM_IN_S, HIGH);
+    unsigned int m = pulseIn(PIN_PWM_IN_M, HIGH);
+
+    // Convert the pulse width of the high pulse to a percentage 
+    steering = (unsigned char) map(s, STEER_PW_IN_MIN, STEER_PW_IN_MAX, 0, 100);
+    steering = (unsigned char) map(m, MOTOR_PW_IN_MIN, MOTOR_PW_IN_MAX, 0, 100);
+    
+    return;
+} // interceptPWM
+
 
 /* Public: Change the PWM signal that is being sent to the steering servo to
  *         the given duty cycle.
@@ -163,11 +173,18 @@ void interceptPWM(unsigned char &steering, unsigned char &motor)
  * dutyCycle - The duty cycle of the PWM signal that the steering servo will
  *            recieve after the call to this function.
  */
-void setSteer(unsigned char dutyCycle)
+void writeToSteerServo(unsigned char dutyCycle) // FIXME
 {
-    // FIXME frequency of the signal...
-    analogWrite(PIN_PWM_OUT_S);
-}
+    // Convert duty cycle to on/off count
+    unsigned short on = 0; // Signal starts on by default
+    unsigned short off = map(dutycycle, 0, 100, 0, 4095);
+
+    // Tell the pwm module to generate the waveform
+    setPWM(STEER_CHANNEL);
+
+    return;
+} // writeToSteerServo
+
 
 /* Public: Change the PWM signal that is being sent to the motor controller to
  *         the given duty cycle.
@@ -178,11 +195,18 @@ void setSteer(unsigned char dutyCycle)
  * dutyCycle - The duty cycle of the PWM signal that the steering servo will
  *            recieve after the call to this function.
  */
-void setSpeed(unsigned char dutyCycle)
+void writeToMotorController(unsigned char dutyCycle) // FIXME
 {
-    // FIXME frequency of the signal...
-    analogWrite(PIN_PWM_OUT_M);
-}
+    // Convert duty cycle to on/off count
+    unsigned short on = 0; // Signal starts on by default
+    unsigned short off = map(dutycycle, 0, 100, 0, 4095);
+
+    // Tell the pwm module to generate the waveform
+    setPWM(MOTOR_CHANNEL);
+
+    return;
+} //writeToMotorController
+
 
 /* Private: Called when the i2c master reads from the Arduino. A master read is
  *          the same as receiving a transmission in Arduino lingo.
@@ -192,21 +216,34 @@ void masterReadHandler()
     // Sends data to the master according to the value of nextRead 
     switch (nextRead) {
     case REG_ID:
+        // Send the chip id
         Wire.write(SELF_CHIP_ID); 
+
         break;
+
     case REG_STEER:
-        //FIXME Wire.write(steer); 
+        // Send the steering servo duty cycle
+        Wire.write(steerDC); 
+        
         break;
+    
     case REG_SPEED:
-        //FIXME Wire.write(speed); 
+        // Send the motor controller duty cycle
+        Wire.write(motorDC); 
+
         break;
+        
     default: // Can't read from this reg
         // Do nothing
         break; 
     }
+
     // Reset nextRead
     nextRead = REG_NEXT_READ; // invalid
-}
+
+    return;
+} // masterReadHandler
+
 
 /* Private: Called when the i2c master writes to the Arduino. A master write is
  *          the same as receiving a request in Arduino lingo.
@@ -224,37 +261,61 @@ void masterWriteHandler(int numBytes)
         unsigned char reg = Wire.read();
         switch (reg) {
         case REG_MODE:
+            // read in the mode that the I2C master wants to put the arduino in
             if (Wire.available() == 1) {
                 unsigned char m = Wire.read();
-                if ( (m == MODE_IDLE) || (m == MODE_RC) || 
-                     (m == MODE_RPI) || (m == MODE_SLEEP) ) {
+                if ( (m == MODE_IDLE) || (m == MODE_RC) || (m == MODE_RPI) ) {
                     mode = m;
                 }
             }
+
             // Make sure we don't mess up a read procedure
             nextRead = REG_NEXT_READ; // invalid
+
             break;
+
         case REG_STEER:
             if (Wire.available() == 2) {
                 unsigned char direction = Wire.read();
                 unsigned char percent = Wire.read();
+                
                 // FIXME convert percentage and direction to duty cycle
-                setSteer(/*dutycycle*/);
+                if (direction == /*FIXME*/ 0) { // forward
+                    speedDC = (unsigned char) map(percent, 0, 100, /*FIXME*/); 
+                } else { // reverse
+                    speedDC = (unsigned char) map(percent, 0, 100, /*FIXME*/);
+                }
+
             }
+
             // Make sure we don't mess up a read procedure
             nextRead = REG_NEXT_READ; // invalid
+
             break;
+
         case REG_SPEED:
+            // Read in the percentage and direction that the I2C master wants
+            // the rcCar to turn in
             if (Wire.available() == 2) {
                 unsigned char direction = Wire.read();
                 unsigned char percent = Wire.read();
+                
                 // FIXME convert percentage and direction to duty cycle
-                setSpeed(/*dutycycle*/);
+                if (direction == /*FIXME*/ 0) { // left
+                    speedDC = (unsigned char) map(percent, 0, 100, /*FIXME*/); 
+                } else { // right
+                    speedDC = (unsigned char) map(percent, 0, 100, /*FIXME*/);
+                }
+
             }
+
             // Make sure we don't mess up a read procedure
             nextRead = REG_NEXT_READ; // invalid
+
             break;
+
         case REG_NEXT_READ:
+            // Read in the number of the next reg to read
             if (Wire.available() == 1) {
                 unsigned char r = Wire.read();
                 if ( (r == REG_ID) || (r == REG_STEER) || (r == REG_SPEED) ) {
@@ -263,25 +324,18 @@ void masterWriteHandler(int numBytes)
                     nextRead = REG_NEXT_READ; // invalid
                 }
             }
+
             break;
+
         default: // Bad reg name
             // Make sure we don't mess up a read procedure
             nextRead = REG_NEXT_READ; // invalid
-            break;
-        }
-    }
-}
 
-/* Private: Interrupt service routine to handle the interrupt caused by a pin
- *          going high that indicates that the Arduino should resume from sleep
- *          mode. 
- * 
- * args - ?????????????
- *
- */
-void _ISR_wakeupHandler(/*args*/)
-{
-    sleep_disable();
-    detachInterrupt(/*look up what the args are*/); // FIXME
-    wakeup = true;
-}
+            break;
+
+        } // switch
+
+    } // if
+
+} // masterWriteHandler
+

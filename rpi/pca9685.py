@@ -45,12 +45,18 @@ class PCA9685:
             raise ValueError("output pin must be between 0 and 1000 inclusive")
         # Determine prescaler for frequency
         prescaler = round( self.OSC_CLOCK / (4096 * frequency) )
-        # Sleep device to allow frequency change
-
+        # Sleep device to allow frequency change (bit 4 MODE1 = 1)
+        m1 = self.bus.read_byte_data(self.I2C_ADDR_7BIT, self.REG_MODE1)
+        m1 |= 0x08
+        self.bus.write_byte_data(self.I2C_ADDR_7BIT, self.REG_MODE1, m1)
         # Set prescaler value
         self.bus.write_byte_data(self.I2C_ADDR_7BIT, self.REG_PRESCALE, 
-        # Wake up device
-
+        # Wake up device (bit 4 MODE1 = 0)
+        m1 = self.bus.read_byte_data(self.I2C_ADDR_7BIT, self.REG_MODE1)
+        m1 &= 0xF7
+        self.bus.write_byte_data(self.I2C_ADDR_7BIT, self.REG_MODE1, m1)
+        # FIXME there is a 500us delay here that is required before any of the 
+        # count registers can be changed
 
     def setDC(self, outputPin, dutyCycle):
         # Validate output pin
