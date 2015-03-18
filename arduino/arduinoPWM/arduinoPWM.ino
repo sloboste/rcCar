@@ -16,13 +16,11 @@ const unsigned char SELF_I2C_ADDR = 0x10;
 const unsigned char SELF_CHIP_ID = 0xAD; 
 
 // Pins used on  the Arduino
-const unsigned char PIN_I2C_SDA   = A4; //FIXME analog pin A4
-const unsigned char PIN_I2C_SCL   = A5; //FIXME analog pin A5
-const unsigned char PIN_PWM_IN_S  = 0; //FIXME digital pin 3, 4, 5, 6, 9, or 10
-const unsigned char PIN_PWM_IN_M  = 0; //FIXME ""
-const unsigned char PIN_PWM_OUT_S = 0; //FIXME ""
-const unsigned char PIN_PWM_OUT_M = 0; //FIXME ""
-const unsigned char PIN_LED       = 14; //FIXME digital pin 14
+const unsigned char PIN_I2C_SDA   = A4; 
+const unsigned char PIN_I2C_SCL   = A5; 
+const unsigned char PIN_PWM_IN_S  = 3; 
+const unsigned char PIN_PWM_IN_M  = 5;
+//const unsigned char PIN_LED       = 13; 
 
 // The valid modes that the Arduino can be in 
 const unsigned char MODE_IDLE  = 0x00;
@@ -72,6 +70,11 @@ const unsigned char MOTOR_CHANNEL = 1;
  */ 
 void setup()
 {
+    // Setup GPIO pins
+    pinmode(PIN_PWM_IN_S, INPUT);
+    pinmode(PIN_PWM_IN_M, INPUT);
+    // FIXME need to setup sda, scl?
+
     // Initialize mode
     mode = IDLE;
 
