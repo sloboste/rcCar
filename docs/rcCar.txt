@@ -1,0 +1,98 @@
+===============================================================================
+Document: rcCar.txt
+Description: Details the implementation and use of the microcomputer-controlled
+             RC car
+Author: Steven Sloboda
+Version: 0.1
+Last Modified: 03-18-2015
+===============================================================================
+TABLE OF CONTENTS
+===============================================================================
+Table of Contents
+
+Chapter 1 - Introduction
+
+Chapter 2 - RC Car
+
+Chapter 3 - Raspberry Pi
+
+Chapter 4 - Arduino
+
+Chapter 5 - PWM Module
+
+Chapter 6 - Circuitry
+
+Chapter 7 - user guide / interface ???
+
+
+===============================================================================
+CHAPTER 1 - Introduction
+===============================================================================
+Section A: Overview
+    This is the microcomputer-controlled RC car project. The purpose of this 
+project was to take a stock RC car, strip it down, and put a microcomputer and
+accompanying circuitry/components on it. The microcomputer determines how the 
+car is controlled by running a software program that uses the RC car interface
+defined in chapter ?. 
+
+Section B: Components
+    The project consists of the following components:
+- an RC car (originally a Team Associated (ae) SC10
+- a Raspberry Pi Model B microcomputer
+- an Arduino Pro Mini 5V 16MHz
+- an Adafruit 16 Channel 12-bit PWM/Servo Driver - I2C interface - PCA9685
+- custom communication and power regulation circuitry  
+- software for the Raspberry Pi and Arduino (www.github.com/sloboste/rcCar)
+
+===============================================================================
+CHAPTER 2 - RC Car
+===============================================================================
+Section A: Car
+    The RC car that was selected for this project is the Team Associated (ae)
+SC10 (short course) 1:10 scale, ready-to-run, 2WD, electric off road race
+truck.
+
+===============================================================================
+CHAPTER 3 - Raspberry Pi
+===============================================================================
+Section A: Hardware
+    This project uses the Raspberry Pi Model B. Other models of Raspberry Pi
+most likely could be used instead, but the documentation will only describe how
+to use the Model B. 
+
+Section B: Operating System
+    The Raspberry Pi in this project runs the 2014-12-24 version of the 
+raspbian-wheezy operating system. Here is a helpful installation tutorial:
+http://elinux.org/RPi_Hub#Getting_Started
+
+Section C: Software Packages
+    This project uses several software packages that need to be installed on
+the Raspberry Pi. Following is a list of those packages:
+- i2c-tools
+- python-smbus 
+Here is a helpful installation tutorial:
+http://www.instructables.com/id/Raspberry-Pi-I2C-Python/?ALLSTEPS
+
+===============================================================================
+CHAPTER 4
+===============================================================================
+
+
+===============================================================================
+CHAPTER 5
+===============================================================================
+
+
+===============================================================================
+CHAPTER 6
+===============================================================================
+
+
+===============================================================================
+CHAPTER 7
+===============================================================================
+
+
+===============================================================================
+END OF DOCUMENT
+

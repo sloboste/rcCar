@@ -7,15 +7,6 @@
 
 import smbus
 
-# How to handle the ioerror errno 5
-#
-# try:
-#   bus.read/write(blah)
-# except:
-#   subprocess.call(['i2cdetect', '-y', '1'])
-#   flag = 1 # optional flag to signal code to redo bus transaction
-#
-
 # RcCar: 
 # Module for control of an RC car with a RPi. The car has an Arduino Pro Mini 
 # on board to handle PWM which communicates with the RPi via I2C.
@@ -45,13 +36,11 @@ class RcCar:
         self.MODE_IDLE   = 0x00
         self.MODE_RC     = 0x01
         self.MODE_RPI    = 0x02
-        self.MODE_SLEEP  = 0x03    
 
     # Public: Verify the id number of the Arduino module
     #             "idle"  - do nothing
     #             "rc"    - respond to commands from the radio transmitter
     #             "rpi"   - respond to commands from the RPi
-    #             "sleep" - low power mode; can't do anything until woken up
     #
     def verifyID(self):
         # Tell Arduino to send id on next read
@@ -70,7 +59,6 @@ class RcCar:
     #             "idle"  - do nothing
     #             "rc"    - respond to commands from the radio transmitter
     #             "rpi"   - respond to commands from the RPi
-    #             "sleep" - low power mode; can't do anything until woken up
     #
     def setMode(self, mode):
         # Validate mode
@@ -81,8 +69,6 @@ class RcCar:
             cmd = self.MODE_RC
         elif (mode == "rpi"):
             cmd = self.MODE_RPI
-        elif (mode == "sleep"):
-            cmd = self.MODE_SLEEP
         else:
             raise ValueError('mode not recognized')
         # Write to Arduino
@@ -126,4 +112,15 @@ class RcCar:
             raise ValueError('percentage must be between 0 and 100')
         # Write to Arduino
         self.bus.write_byte_data(self.ADDR, self.REG_STEER, direction, percentage)
+
+
+
+# NOTE: How to handle the ioerror errno 5
+#
+# try:
+#   bus.read/write(blah)
+# except:
+#   subprocess.call(['i2cdetect', '-y', '1'])
+#   flag = 1 # optional flag to signal code to redo bus transaction
+#
 
