@@ -12,6 +12,9 @@
 // 7-bit I2C address of Arduino (arbitrarily assigned)
 const unsigned char SELF_I2C_ADDR = 0x10;
 
+// 7 bit I2C address of PWM module (arbitrarily assigned in the pwm hardware)
+const unsigned char PWM_I2C_ADDR = 0x00; //FIXME
+
 // 8-bit identification number (arbitrarily assigned) of Arduino
 const unsigned char SELF_CHIP_ID = 0xAD; 
 
@@ -20,7 +23,7 @@ const unsigned char PIN_I2C_SDA   = A4;
 const unsigned char PIN_I2C_SCL   = A5; 
 const unsigned char PIN_PWM_IN_S  = 3; 
 const unsigned char PIN_PWM_IN_M  = 5;
-//const unsigned char PIN_LED       = 13; 
+const unsigned char PIN_LED       = 13; 
 
 // The valid modes that the Arduino can be in 
 const unsigned char MODE_IDLE  = 0x00;
@@ -64,6 +67,8 @@ const unsigned char PWM_FREQ = 72; // Hz
 const unsigned char STEER_CHANNEL = 0;
 const unsigned char MOTOR_CHANNEL = 1;
 
+// PWM module
+Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver(PWM_I2C_ADDR);
 
 /* Arduino setup function. Runs on device power on before the loop function is
  * called.
@@ -71,25 +76,27 @@ const unsigned char MOTOR_CHANNEL = 1;
 void setup()
 {
     // Setup GPIO pins
-    pinmode(PIN_PWM_IN_S, INPUT);
-    pinmode(PIN_PWM_IN_M, INPUT);
+    pinMode(PIN_PWM_IN_S, INPUT);
+    pinMode(PIN_PWM_IN_M, INPUT);
     // FIXME need to setup sda, scl?
+    pinMode(PIN_LED, OUTPUT);
+    digitalWrite(PIN_LED, LOW);
 
     // Initialize mode
-    mode = IDLE;
+    mode = MODE_IDLE;
 
     // Set i2c bus address
     Wire.begin(SELF_I2C_ADDR); 
     
     // Register handlers for master read and write
-    Wire.onRecieve(masterWriteHandler);
+    Wire.onReceive(masterWriteHandler);
     Wire.onRequest(masterReadHandler);
 
     // Start up the pwm module
     pwm.begin();
 
     // Set the adafruit pwm module to the correct frequency // FIXME
-    setPWMFreq(PWM_FREQ);
+    pwm.setPWMFreq(PWM_FREQ);
 
     return;
 }
@@ -102,7 +109,7 @@ void loop()
     // Take appropriate action based on mode
     switch (mode) {
 
-    case RC:
+    case MODE_RC:
         // Intercept PWM duty cycles from radio reciever
         interceptPWM(steerDC, motorDC);
             
@@ -112,7 +119,7 @@ void loop()
         
         break;
                 
-    case RPI:
+    case MODE_RPI:
         // steerDC will have been set by RPI command
         // motorDC will have been set by RPI command
 
@@ -122,7 +129,7 @@ void loop()
         
         break;
 
-    default: // (mode == IDLE) || (mode == some_undefined_value) 
+    default: // (mode == MODE_IDLE) || (mode == some_undefined_value) 
         // Make sure steering and motor servos are not doing anything
         steerDC = STEER_DC_NEUTRAL; 
         motorDC = MOTOR_DC_NEUTRAL;
@@ -134,6 +141,11 @@ void loop()
         break;
         
     } // switch
+
+    // Blink led FIXME get rid of this after debugging
+    digitalWrite(PIN_LED, HIGH);
+    delay(500);
+    digitalWrite(PIN_LED, LOW); 
 
 } // loop
 
@@ -160,8 +172,10 @@ void interceptPWM(unsigned char &steering, unsigned char &motor) // FIXME
     unsigned int m = pulseIn(PIN_PWM_IN_M, HIGH);
 
     // Convert the pulse width of the high pulse to a percentage 
-    steering = (unsigned char) map(s, STEER_PW_IN_MIN, STEER_PW_IN_MAX, 0, 100);
-    steering = (unsigned char) map(m, MOTOR_PW_IN_MIN, MOTOR_PW_IN_MAX, 0, 100);
+    // FIXME The arguments to this function are probably unecessary because
+    // FIXME   steerDC and motorDC are globals
+    steering = (unsigned char) map(s, STEER_PW_MIN, STEER_PW_MAX, 0, 100);
+    motor = (unsigned char) map(m, MOTOR_PW_MIN, MOTOR_PW_MAX, 0, 100);
     
     return;
 } // interceptPWM
@@ -180,10 +194,10 @@ void writeToSteerServo(unsigned char dutyCycle) // FIXME
 {
     // Convert duty cycle to on/off count
     unsigned short on = 0; // Signal starts on by default
-    unsigned short off = map(dutycycle, 0, 100, 0, 4095);
+    unsigned short off = map(dutyCycle, 0, 100, 0, 4095);
 
     // Tell the pwm module to generate the waveform
-    setPWM(STEER_CHANNEL);
+    pwm.setPWM(STEER_CHANNEL, 0, 0); // FIXME
 
     return;
 } // writeToSteerServo
@@ -202,10 +216,10 @@ void writeToMotorController(unsigned char dutyCycle) // FIXME
 {
     // Convert duty cycle to on/off count
     unsigned short on = 0; // Signal starts on by default
-    unsigned short off = map(dutycycle, 0, 100, 0, 4095);
+    unsigned short off = map(dutyCycle, 0, 100, 0, 4095);
 
     // Tell the pwm module to generate the waveform
-    setPWM(MOTOR_CHANNEL);
+    pwm.setPWM(MOTOR_CHANNEL, 0, 0); // FIXME
 
     return;
 } //writeToMotorController
@@ -284,9 +298,11 @@ void masterWriteHandler(int numBytes)
                 
                 // FIXME convert percentage and direction to duty cycle
                 if (direction == /*FIXME*/ 0) { // forward
-                    speedDC = (unsigned char) map(percent, 0, 100, /*FIXME*/); 
+
+                    steerDC = (unsigned char) map(percent, 0, 100, /*FIXME*/0,0); 
                 } else { // reverse
-                    speedDC = (unsigned char) map(percent, 0, 100, /*FIXME*/);
+
+                    steerDC = (unsigned char) map(percent, 0, 100, /*FIXME*/0,0);
                 }
 
             }
@@ -305,9 +321,11 @@ void masterWriteHandler(int numBytes)
                 
                 // FIXME convert percentage and direction to duty cycle
                 if (direction == /*FIXME*/ 0) { // left
-                    speedDC = (unsigned char) map(percent, 0, 100, /*FIXME*/); 
+
+                    motorDC = (unsigned char) map(percent, 0, 100, /*FIXME*/0,0); 
                 } else { // right
-                    speedDC = (unsigned char) map(percent, 0, 100, /*FIXME*/);
+
+                    motorDC = (unsigned char) map(percent, 0, 100, /*FIXME*/0,0);
                 }
 
             }
