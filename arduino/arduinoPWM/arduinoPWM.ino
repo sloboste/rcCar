@@ -19,6 +19,7 @@ static const unsigned char PWM_I2C_ADDR = 0x00; //FIXME
 static const unsigned char SELF_CHIP_ID = 0xAD; 
 
 // Pins used on  the Arduino
+// Data line close to the red button on the receiver...
 static const unsigned char PIN_I2C_SDA   = A4; 
 static const unsigned char PIN_I2C_SCL   = A5; 
 static const unsigned char PIN_PWM_IN_S  = 3; // Receiver channel 1 
@@ -92,8 +93,8 @@ void setup()
     pinMode(PIN_LED, OUTPUT);
     digitalWrite(PIN_LED, LED_state);
 
-    // Initialize mode
-    mode = MODE_IDLE;
+    // Initialize mode // FIXME
+    mode = MODE_RC;
 
     // Set i2c bus address
     Wire.begin(SELF_I2C_ADDR); 
@@ -174,6 +175,7 @@ void loop()
 
     // DEBUGGING
     //Serial.print("Exiting loop()\n");
+    delay(1000);
 
 } // loop
 
@@ -198,15 +200,16 @@ void interceptPWM(unsigned char &steering, unsigned char &motor) // FIXME
     // DEBUGGING
     Serial.print("Enter interceptPWM()\n");
     
-    // Read pulse width of the steering and motor signals
-    unsigned int s = pulseIn(PIN_PWM_IN_S, HIGH);
-    unsigned int m = pulseIn(PIN_PWM_IN_M, HIGH);
+    // Read pulse width of the steering and motor signals FIXME
+    unsigned int s = pulseIn(PIN_PWM_IN_S, HIGH); // microseconds
+    unsigned int m = pulseIn(PIN_PWM_IN_M, HIGH); // microseconds
 
     // DEBUGGING
     Serial.print("steering pulse width = ");
     Serial.println(s);
     Serial.print("motor pulse width = ");
     Serial.println(m);
+    Serial.println();
 
     // Convert the pulse width of the high pulse to a percentage 
     // FIXME The arguments to this function are probably unecessary because
