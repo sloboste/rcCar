@@ -10,77 +10,87 @@
 
 
 // 7-bit I2C address of Arduino (arbitrarily assigned)
-const unsigned char SELF_I2C_ADDR = 0x10;
+static const unsigned char SELF_I2C_ADDR = 0x10;
 
 // 7 bit I2C address of PWM module (arbitrarily assigned in the pwm hardware)
-const unsigned char PWM_I2C_ADDR = 0x00; //FIXME
+static const unsigned char PWM_I2C_ADDR = 0x00; //FIXME
 
 // 8-bit identification number (arbitrarily assigned) of Arduino
-const unsigned char SELF_CHIP_ID = 0xAD; 
+static const unsigned char SELF_CHIP_ID = 0xAD; 
 
 // Pins used on  the Arduino
-const unsigned char PIN_I2C_SDA   = A4; 
-const unsigned char PIN_I2C_SCL   = A5; 
-const unsigned char PIN_PWM_IN_S  = 3; 
-const unsigned char PIN_PWM_IN_M  = 5;
-const unsigned char PIN_LED       = 13; 
+static const unsigned char PIN_I2C_SDA   = A4; 
+static const unsigned char PIN_I2C_SCL   = A5; 
+static const unsigned char PIN_PWM_IN_S  = 3; 
+static const unsigned char PIN_PWM_IN_M  = 5;
+static const unsigned char PIN_LED       = 13; 
 
 // The valid modes that the Arduino can be in 
-const unsigned char MODE_IDLE  = 0x00;
-const unsigned char MODE_RC    = 0x01;
-const unsigned char MODE_RPI   = 0x02;
+static const unsigned char MODE_IDLE  = 0x00;
+static const unsigned char MODE_RC    = 0x01;
+static const unsigned char MODE_RPI   = 0x02;
 
 // The "registers" in the Arduino that the I2C master can w/r 
-const unsigned char REG_ID        = 0x00;
-const unsigned char REG_MODE      = 0x01;
-const unsigned char REG_STEER     = 0x02;
-const unsigned char REG_SPEED     = 0x03;
-const unsigned char REG_NEXT_READ = 0x04;
+static const unsigned char REG_ID        = 0x00;
+static const unsigned char REG_MODE      = 0x01;
+static const unsigned char REG_STEER     = 0x02;
+static const unsigned char REG_SPEED     = 0x03;
+static const unsigned char REG_NEXT_READ = 0x04;
 
 // Mode that the Arduino is currently in
-unsigned char mode;
+static unsigned char mode;
 
 // The register that the Arduino will send contents of on next master read
 // Note REG_NEXT_READ is used to represent "invalid" i.e., not supposed to send
-unsigned char nextRead = REG_NEXT_READ; 
+static unsigned char nextRead = REG_NEXT_READ; 
 
 // Duty cycles for steering and motor PWM signals
-unsigned char steerDC = 0;
-unsigned char motorDC = 0;
+static unsigned char steerDC = 0;
+static unsigned char motorDC = 0;
 
 // Max and min high pulse widths for the steering and motor PWM signals
 // Out of 4096 i think...
 // FIXME
-const unsigned int STEER_PW_MIN = 0;
-const unsigned int STEER_PW_MAX = 0;
-const unsigned int MOTOR_PW_MIN = 0;
-const unsigned int MOTOR_PW_MAX = 0;
+static const unsigned int STEER_PW_MIN = 0;
+static const unsigned int STEER_PW_MAX = 0;
+static const unsigned int MOTOR_PW_MIN = 0;
+static const unsigned int MOTOR_PW_MAX = 0;
 
 // Center position for steering and 0% throttle
-const unsigned char STEER_DC_NEUTRAL = 50; // FIXME 
-const unsigned char MOTOR_DC_NEUTRAL = 50; // FIXME
+static const unsigned char STEER_DC_NEUTRAL = 50; // FIXME 
+static const unsigned char MOTOR_DC_NEUTRAL = 50; // FIXME
 
 // Frequency of the steerning and motor PWM signals
-const unsigned char PWM_FREQ = 72; // Hz
+static const unsigned char PWM_FREQ = 72; // Hz
 
 // The steering and motor PWM channels on the pwm module
-const unsigned char STEER_CHANNEL = 0;
-const unsigned char MOTOR_CHANNEL = 1;
+static const unsigned char STEER_CHANNEL = 0;
+static const unsigned char MOTOR_CHANNEL = 1;
 
 // PWM module
 Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver(PWM_I2C_ADDR);
+
+// LED blinking stuff
+static int LED_state = LOW;
+static unsigned long prevMili = 0;
+static unsigned long interval = 500;
+
 
 /* Arduino setup function. Runs on device power on before the loop function is
  * called.
  */ 
 void setup()
 {
+    // DEBUGGING
+    Serial.begin(9600); 
+    Serial.print("Entered setup()\n");
+
     // Setup GPIO pins
     pinMode(PIN_PWM_IN_S, INPUT);
     pinMode(PIN_PWM_IN_M, INPUT);
     // FIXME need to setup sda, scl?
     pinMode(PIN_LED, OUTPUT);
-    digitalWrite(PIN_LED, LOW);
+    digitalWrite(PIN_LED, LED_state);
 
     // Initialize mode
     mode = MODE_IDLE;
@@ -98,6 +108,9 @@ void setup()
     // Set the adafruit pwm module to the correct frequency // FIXME
     pwm.setPWMFreq(PWM_FREQ);
 
+    // DEBUGGING
+    Serial.print("Exiting setup()\n");
+
     return;
 }
 
@@ -106,6 +119,9 @@ void setup()
  */
 void loop()
 {
+    // DEBUGGING
+    //Serial.print("Entered loop()\n");
+
     // Take appropriate action based on mode
     switch (mode) {
 
@@ -142,10 +158,22 @@ void loop()
         
     } // switch
 
-    // Blink led FIXME get rid of this after debugging
-    digitalWrite(PIN_LED, HIGH);
-    delay(500);
-    digitalWrite(PIN_LED, LOW); 
+    // Blink led to indicate that the board is working
+    unsigned long curMili = millis();
+    if ( (curMili - prevMili) > interval) { // blink led
+        if (LED_state == LOW) {
+            LED_state = HIGH;
+        } else {
+            LED_state = LOW;
+        }
+        prevMili = curMili;
+        digitalWrite(PIN_LED, LED_state); 
+    } else if (prevMili > curMili) { // overflow occured
+        prevMili = 0;
+    } 
+
+    // DEBUGGING
+    //Serial.print("Exiting loop()\n");
 
 } // loop
 
@@ -167,9 +195,18 @@ void loop()
  */
 void interceptPWM(unsigned char &steering, unsigned char &motor) // FIXME
 {
+    // DEBUGGING
+    Serial.print("Enter interceptPWM()\n");
+    
     // Read pulse width of the steering and motor signals
     unsigned int s = pulseIn(PIN_PWM_IN_S, HIGH);
     unsigned int m = pulseIn(PIN_PWM_IN_M, HIGH);
+
+    // DEBUGGING
+    Serial.print("steering pulse width = ");
+    Serial.println(s);
+    Serial.print("motor pulse width = ");
+    Serial.println(m);
 
     // Convert the pulse width of the high pulse to a percentage 
     // FIXME The arguments to this function are probably unecessary because
@@ -192,6 +229,9 @@ void interceptPWM(unsigned char &steering, unsigned char &motor) // FIXME
  */
 void writeToSteerServo(unsigned char dutyCycle) // FIXME
 {
+    // DEBUGGING
+    Serial.print("Enter writeToSteerServo()\n");
+    
     // Convert duty cycle to on/off count
     unsigned short on = 0; // Signal starts on by default
     unsigned short off = map(dutyCycle, 0, 100, 0, 4095);
@@ -214,6 +254,9 @@ void writeToSteerServo(unsigned char dutyCycle) // FIXME
  */
 void writeToMotorController(unsigned char dutyCycle) // FIXME
 {
+    // DEBUGGING
+    Serial.print("Enter writeToMotorController)\n");
+    
     // Convert duty cycle to on/off count
     unsigned short on = 0; // Signal starts on by default
     unsigned short off = map(dutyCycle, 0, 100, 0, 4095);
@@ -230,27 +273,42 @@ void writeToMotorController(unsigned char dutyCycle) // FIXME
  */
 void masterReadHandler()
 {
+    // DEBUGGING
+    Serial.print("Enter masterReadHandler()\n");
+    
     // Sends data to the master according to the value of nextRead 
     switch (nextRead) {
     case REG_ID:
+        // DEBUGGING
+        Serial.print("nextRead was REG_ID\n");
+    
         // Send the chip id
         Wire.write(SELF_CHIP_ID); 
 
         break;
 
     case REG_STEER:
+        // DEBUGGING
+        Serial.print("nextRead was REG_STEER\n");
+    
         // Send the steering servo duty cycle
         Wire.write(steerDC); 
         
         break;
     
     case REG_SPEED:
+        // DEBUGGING
+        Serial.print("nextRead was REG_SPEED\n");
+    
         // Send the motor controller duty cycle
         Wire.write(motorDC); 
 
         break;
         
     default: // Can't read from this reg
+        // DEBUGGING
+        Serial.print("next read was nothing we could do\n");
+    
         // Do nothing
         break; 
     }
@@ -272,18 +330,30 @@ void masterReadHandler()
  */
 void masterWriteHandler(int numBytes)
 {
+    // DEBUGGING
+    Serial.print("Enter masterWriteHandler()\n");
+    
     // FIXME in the example code the last byte is ignored should I do that too?
     if (Wire.available() <= 3) { 
         // Determine the selected "register"
         unsigned char reg = Wire.read();
         switch (reg) {
         case REG_MODE:
+            // DEBUGGING
+            Serial.print("register selected was REG_MODE\n");
+    
             // read in the mode that the I2C master wants to put the arduino in
             if (Wire.available() == 1) {
                 unsigned char m = Wire.read();
                 if ( (m == MODE_IDLE) || (m == MODE_RC) || (m == MODE_RPI) ) {
                     mode = m;
+                } else { // Invalid mode
+                    // DEBUGGING
+                    Serial.print("invalid mode selected\n");
                 }
+            } else { // No mode specified
+                // DEBUGGING
+                Serial.print("no mode data recieved\n");
             }
 
             // Make sure we don't mess up a read procedure
@@ -292,10 +362,20 @@ void masterWriteHandler(int numBytes)
             break;
 
         case REG_STEER:
+            // DEBUGGING
+            Serial.print("register selected was REG_STEER\n");
+    
+            // read in the reg that the I2C master wants to read from
             if (Wire.available() == 2) {
                 unsigned char direction = Wire.read();
                 unsigned char percent = Wire.read();
                 
+                // DEBUGGING
+                Serial.print("direction = ");
+                Serial.println(direction);
+                Serial.print("percentage = ");
+                Serial.println(percent);
+
                 // FIXME convert percentage and direction to duty cycle
                 if (direction == /*FIXME*/ 0) { // forward
 
@@ -305,6 +385,9 @@ void masterWriteHandler(int numBytes)
                     steerDC = (unsigned char) map(percent, 0, 100, /*FIXME*/0,0);
                 }
 
+            } else { // No direction or percentage specified
+                // DEBUGGING
+                Serial.print("no direction or percentage data recieved\n");
             }
 
             // Make sure we don't mess up a read procedure
@@ -313,12 +396,21 @@ void masterWriteHandler(int numBytes)
             break;
 
         case REG_SPEED:
+            // DEBUGGING
+            Serial.print("register selected was REG_SPEED\n");
+    
             // Read in the percentage and direction that the I2C master wants
             // the rcCar to turn in
             if (Wire.available() == 2) {
                 unsigned char direction = Wire.read();
                 unsigned char percent = Wire.read();
                 
+                // DEBUGGING
+                Serial.print("direction = ");
+                Serial.println(direction);
+                Serial.print("percentage = ");
+                Serial.println(percent);
+
                 // FIXME convert percentage and direction to duty cycle
                 if (direction == /*FIXME*/ 0) { // left
 
@@ -328,6 +420,9 @@ void masterWriteHandler(int numBytes)
                     motorDC = (unsigned char) map(percent, 0, 100, /*FIXME*/0,0);
                 }
 
+            } else { // No direction or percentage specified
+                // DEBUGGING
+                Serial.print("no direction or percentage data recieved\n");
             }
 
             // Make sure we don't mess up a read procedure
@@ -336,19 +431,31 @@ void masterWriteHandler(int numBytes)
             break;
 
         case REG_NEXT_READ:
+            // DEBUGGING
+            Serial.print("register selected was REG_NEXT_READ\n");
+    
             // Read in the number of the next reg to read
             if (Wire.available() == 1) {
                 unsigned char r = Wire.read();
                 if ( (r == REG_ID) || (r == REG_STEER) || (r == REG_SPEED) ) {
                     nextRead = r;
                 } else {
+                    // DEBUGGING
+                    Serial.print("invalid reg selected\n");
+
                     nextRead = REG_NEXT_READ; // invalid
                 }
+            } else { // No next reg specified
+                // DEBUGGING
+                Serial.print("no rext read reg data recieved\n");
             }
 
             break;
 
         default: // Bad reg name
+            // DEBUGGING
+            Serial.print("invalid reg selected\n");
+
             // Make sure we don't mess up a read procedure
             nextRead = REG_NEXT_READ; // invalid
 
@@ -356,7 +463,10 @@ void masterWriteHandler(int numBytes)
 
         } // switch
 
-    } // if
+    } else { // Data wrong length
+       // DEBUGGING
+       Serial.print("data wrong length\n");
+    }
 
 } // masterWriteHandler
 
