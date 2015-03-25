@@ -21,8 +21,8 @@ static const unsigned char SELF_CHIP_ID = 0xAD;
 // Pins used on  the Arduino
 static const unsigned char PIN_I2C_SDA   = A4; 
 static const unsigned char PIN_I2C_SCL   = A5; 
-static const unsigned char PIN_PWM_IN_S  = 3; 
-static const unsigned char PIN_PWM_IN_M  = 5;
+static const unsigned char PIN_PWM_IN_S  = 3; // Receiver channel 1 
+static const unsigned char PIN_PWM_IN_M  = 5; // Receiver channel 2
 static const unsigned char PIN_LED       = 13; 
 
 // The valid modes that the Arduino can be in 
