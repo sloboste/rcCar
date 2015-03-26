@@ -49,13 +49,12 @@ static unsigned char nextRead = REG_NEXT_READ;
 static unsigned char steerDC = 0;
 static unsigned char motorDC = 0;
 
-// Max and min high pulse widths for the steering and motor PWM signals
-// Out of 4096 i think...
-// FIXME
-static const unsigned int STEER_PW_MIN = 0;
-static const unsigned int STEER_PW_MAX = 0;
-static const unsigned int MOTOR_PW_MIN = 0;
-static const unsigned int MOTOR_PW_MAX = 0;
+// Max and min high pulse widths for the steering and motor PWM signals.
+// Units are microseconds
+static const unsigned int STEER_PW_MIN = 1140; // full right
+static const unsigned int STEER_PW_MAX = 2720; // full left
+static const unsigned int MOTOR_PW_MIN = 0; // FIXME
+static const unsigned int MOTOR_PW_MAX = 0; // FIXME
 
 // Center position for steering and 0% throttle
 static const unsigned char STEER_DC_NEUTRAL = 50; // FIXME 
@@ -84,7 +83,7 @@ void setup()
 {
     // DEBUGGING
     Serial.begin(9600); 
-    Serial.print("Entered setup()\n");
+    //Serial.print("Entered setup()\n");
 
     // Setup GPIO pins
     pinMode(PIN_PWM_IN_S, INPUT);
@@ -110,7 +109,7 @@ void setup()
     pwm.setPWMFreq(PWM_FREQ);
 
     // DEBUGGING
-    Serial.print("Exiting setup()\n");
+    //Serial.print("Exiting setup()\n");
 
     return;
 }
@@ -175,7 +174,7 @@ void loop()
 
     // DEBUGGING
     //Serial.print("Exiting loop()\n");
-    delay(1000);
+    //delay(1000);
 
 } // loop
 
@@ -198,22 +197,20 @@ void loop()
 void interceptPWM(unsigned char &steering, unsigned char &motor) // FIXME
 {
     // DEBUGGING
-    Serial.print("Enter interceptPWM()\n");
+    //Serial.print("Enter interceptPWM()\n");
     
-    // Read pulse width of the steering and motor signals FIXME
+    // Read pulse width of the steering and motor signals
     unsigned int s = pulseIn(PIN_PWM_IN_S, HIGH); // microseconds
     unsigned int m = pulseIn(PIN_PWM_IN_M, HIGH); // microseconds
 
     // DEBUGGING
-    Serial.print("steering pulse width = ");
-    Serial.println(s);
-    Serial.print("motor pulse width = ");
-    Serial.println(m);
-    Serial.println();
+    //Serial.print("steering pulse width (ms) = ");
+    //Serial.println((float)s / 1000.0);
+    //Serial.print("motor pulse width (ms) = ");
+    Serial.println((float)m/ 1000.0);
+    //Serial.println();
 
     // Convert the pulse width of the high pulse to a percentage 
-    // FIXME The arguments to this function are probably unecessary because
-    // FIXME   steerDC and motorDC are globals
     steering = (unsigned char) map(s, STEER_PW_MIN, STEER_PW_MAX, 0, 100);
     motor = (unsigned char) map(m, MOTOR_PW_MIN, MOTOR_PW_MAX, 0, 100);
     
@@ -233,7 +230,7 @@ void interceptPWM(unsigned char &steering, unsigned char &motor) // FIXME
 void writeToSteerServo(unsigned char dutyCycle) // FIXME
 {
     // DEBUGGING
-    Serial.print("Enter writeToSteerServo()\n");
+    //Serial.print("Enter writeToSteerServo()\n");
     
     // Convert duty cycle to on/off count
     unsigned short on = 0; // Signal starts on by default
@@ -258,7 +255,7 @@ void writeToSteerServo(unsigned char dutyCycle) // FIXME
 void writeToMotorController(unsigned char dutyCycle) // FIXME
 {
     // DEBUGGING
-    Serial.print("Enter writeToMotorController)\n");
+    //Serial.print("Enter writeToMotorController)\n");
     
     // Convert duty cycle to on/off count
     unsigned short on = 0; // Signal starts on by default
