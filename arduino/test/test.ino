@@ -46,8 +46,15 @@ void request()
 
 void receive(int howMany)
 {
-    Serial.println("receive");
-    int x = Wire.read();
-    Serial.println(x);
+    Serial.print("receive ");
+    Serial.print(howMany);
+    Serial.println(" bytes");
+    for (int i = 0; i < howMany; ++i) {
+        Serial.print("byte number ");
+        Serial.print(i);
+        Serial.print(" = ");
+        int x = Wire.read();
+        Serial.println(x);
+    }
 }
 
