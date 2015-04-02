@@ -5,12 +5,15 @@
  * Version: 0.2
  */
 
+// Comment out this line for production version of the code
+#define DEBUG
+
 #include <Adafruit_PWMServoDriver.h>
 #include <Wire.h>
 
 
 // 7-bit I2C address of Arduino (arbitrarily assigned)
-static const unsigned char SELF_I2C_ADDR = 0x10;
+static const unsigned char SELF_I2C_ADDR = 0x34;
 
 // 7 bit I2C address of PWM module (arbitrarily assigned in the pwm hardware)
 static const unsigned char PWM_I2C_ADDR = 0x00; //FIXME
@@ -20,11 +23,10 @@ static const unsigned char SELF_CHIP_ID = 0xAD;
 
 // Pins used on  the Arduino
 // Data line close to the red button on the receiver...
-static const unsigned char PIN_I2C_SDA   = A4; 
-static const unsigned char PIN_I2C_SCL   = A5; 
+//static const unsigned char PIN_I2C_SDA   = A4; // SDA 
+//static const unsigned char PIN_I2C_SCL   = A5; // SCL
 static const unsigned char PIN_PWM_IN_S  = 3; // Receiver channel 1 
 static const unsigned char PIN_PWM_IN_M  = 5; // Receiver channel 2
-static const unsigned char PIN_LED       = 13; 
 
 // The valid modes that the Arduino can be in 
 static const unsigned char MODE_IDLE  = 0x00;
@@ -70,10 +72,14 @@ static const unsigned char MOTOR_CHANNEL = 1;
 // PWM module
 Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver(PWM_I2C_ADDR);
 
+// DEBUGGING
+#ifdef DEBUG
 // LED blinking stuff
+static const unsigned char PIN_LED = 13; 
 static int LED_state = LOW;
 static unsigned long prevMili = 0;
 static unsigned long interval = 500;
+#endif
 
 
 /* Arduino setup function. Runs on device power on before the loop function is
@@ -82,18 +88,19 @@ static unsigned long interval = 500;
 void setup()
 {
     // DEBUGGING
+    #ifdef DEBUG
     Serial.begin(9600); 
-    //Serial.print("Entered setup()\n");
+    Serial.print("Entered setup()\n");
+    #endif
 
     // Setup GPIO pins
     pinMode(PIN_PWM_IN_S, INPUT);
     pinMode(PIN_PWM_IN_M, INPUT);
-    // FIXME need to setup sda, scl?
     pinMode(PIN_LED, OUTPUT);
     digitalWrite(PIN_LED, LED_state);
 
     // Initialize mode // FIXME
-    mode = MODE_RC;
+    mode = MODE_IDLE;
 
     // Set i2c bus address
     Wire.begin(SELF_I2C_ADDR); 
@@ -102,14 +109,16 @@ void setup()
     Wire.onReceive(masterWriteHandler);
     Wire.onRequest(masterReadHandler);
 
-    // Start up the pwm module
-    pwm.begin();
+    // Start up the pwm module // FIXME
+    //pwm.begin();
 
     // Set the adafruit pwm module to the correct frequency // FIXME
-    pwm.setPWMFreq(PWM_FREQ);
+    //pwm.setPWMFreq(PWM_FREQ);
 
     // DEBUGGING
-    //Serial.print("Exiting setup()\n");
+    #ifdef DEBUG
+    Serial.print("Exiting setup()\n");
+    #endif
 
     return;
 }
@@ -120,7 +129,9 @@ void setup()
 void loop()
 {
     // DEBUGGING
+    #ifdef DEBUG
     //Serial.print("Entered loop()\n");
+    #endif
 
     // Take appropriate action based on mode
     switch (mode) {
@@ -158,6 +169,8 @@ void loop()
         
     } // switch
 
+    // DEBUGGING
+    #ifdef DEBUG
     // Blink led to indicate that the board is working
     unsigned long curMili = millis();
     if ( (curMili - prevMili) > interval) { // blink led
@@ -171,10 +184,9 @@ void loop()
     } else if (prevMili > curMili) { // overflow occured
         prevMili = 0;
     } 
-
-    // DEBUGGING
     //Serial.print("Exiting loop()\n");
     //delay(1000);
+    #endif
 
 } // loop
 
@@ -207,7 +219,7 @@ void interceptPWM(unsigned char &steering, unsigned char &motor) // FIXME
     //Serial.print("steering pulse width (ms) = ");
     //Serial.println((float)s / 1000.0);
     //Serial.print("motor pulse width (ms) = ");
-    Serial.println((float)m/ 1000.0);
+    //Serial.println((float)m/ 1000.0);
     //Serial.println();
 
     // Convert the pulse width of the high pulse to a percentage 
@@ -237,7 +249,7 @@ void writeToSteerServo(unsigned char dutyCycle) // FIXME
     unsigned short off = map(dutyCycle, 0, 100, 0, 4095);
 
     // Tell the pwm module to generate the waveform
-    pwm.setPWM(STEER_CHANNEL, 0, 0); // FIXME
+    //pwm.setPWM(STEER_CHANNEL, 0, 0); // FIXME
 
     return;
 } // writeToSteerServo
@@ -262,7 +274,7 @@ void writeToMotorController(unsigned char dutyCycle) // FIXME
     unsigned short off = map(dutyCycle, 0, 100, 0, 4095);
 
     // Tell the pwm module to generate the waveform
-    pwm.setPWM(MOTOR_CHANNEL, 0, 0); // FIXME
+    //pwm.setPWM(MOTOR_CHANNEL, 0, 0); // FIXME
 
     return;
 } //writeToMotorController
@@ -275,7 +287,7 @@ void masterReadHandler()
 {
     // DEBUGGING
     Serial.print("Enter masterReadHandler()\n");
-    
+   
     // Sends data to the master according to the value of nextRead 
     switch (nextRead) {
     case REG_ID:
@@ -332,7 +344,7 @@ void masterWriteHandler(int numBytes)
 {
     // DEBUGGING
     Serial.print("Enter masterWriteHandler()\n");
-    
+ 
     // FIXME in the example code the last byte is ignored should I do that too?
     if (Wire.available() <= 3) { 
         // Determine the selected "register"
@@ -439,6 +451,10 @@ void masterWriteHandler(int numBytes)
                 unsigned char r = Wire.read();
                 if ( (r == REG_ID) || (r == REG_STEER) || (r == REG_SPEED) ) {
                     nextRead = r;
+                    // DEBUGGING
+                    Serial.print("master wants to read ");
+                    Serial.print(r);
+                    Serial.println();
                 } else {
                     // DEBUGGING
                     Serial.print("invalid reg selected\n");
@@ -467,6 +483,5 @@ void masterWriteHandler(int numBytes)
        // DEBUGGING
        Serial.print("data wrong length\n");
     }
-
 } // masterWriteHandler
 
