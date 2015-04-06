@@ -13,61 +13,63 @@
 
 
 // 7-bit I2C address of Arduino (arbitrarily assigned)
-static const unsigned char SELF_I2C_ADDR = 0x34;
+static const uint8_t SELF_I2C_ADDR = 0x34;
 
-// 7 bit I2C address of PWM module (arbitrarily assigned in the pwm hardware)
-static const unsigned char PWM_I2C_ADDR = 0x00; //FIXME
+// 7 bit I2C address of PWM module (0x40 is default)
+static const uint8_t PWM_I2C_ADDR = 0x40; 
 
 // 8-bit identification number (arbitrarily assigned) of Arduino
-static const unsigned char SELF_CHIP_ID = 0xAD; 
+static const uint8_t SELF_CHIP_ID = 0xAD; 
 
 // Pins used on  the Arduino
 // Data line close to the red button on the receiver...
 //static const unsigned char PIN_I2C_SDA   = A4; // SDA 
 //static const unsigned char PIN_I2C_SCL   = A5; // SCL
-static const unsigned char PIN_PWM_IN_S  = 3; // Receiver channel 1 
-static const unsigned char PIN_PWM_IN_M  = 5; // Receiver channel 2
+static const uint8_t PIN_PWM_IN_S  = 3; // Receiver channel 1 
+static const uint8_t PIN_PWM_IN_M  = 5; // Receiver channel 2
 
 // The valid modes that the Arduino can be in 
-static const unsigned char MODE_IDLE  = 0x00;
-static const unsigned char MODE_RC    = 0x01;
-static const unsigned char MODE_RPI   = 0x02;
+static const uint8_t MODE_IDLE  = 0x00;
+static const uint8_t MODE_RC    = 0x01;
+static const uint8_t MODE_RPI   = 0x02;
 
 // The "registers" in the Arduino that the I2C master can w/r 
-static const unsigned char REG_ID        = 0x00;
-static const unsigned char REG_MODE      = 0x01;
-static const unsigned char REG_STEER     = 0x02;
-static const unsigned char REG_SPEED     = 0x03;
-static const unsigned char REG_NEXT_READ = 0x04;
+static const uint8_t REG_ID        = 0x00;
+static const uint8_t REG_MODE      = 0x01;
+static const uint8_t REG_STEER     = 0x02;
+static const uint8_t REG_SPEED     = 0x03;
+static const uint8_t REG_NEXT_READ = 0x04;
 
 // Mode that the Arduino is currently in
-static unsigned char mode;
+static uint8_t mode;
 
 // The register that the Arduino will send contents of on next master read
 // Note REG_NEXT_READ is used to represent "invalid" i.e., not supposed to send
-static unsigned char nextRead = REG_NEXT_READ; 
+static uint8_t nextRead = REG_NEXT_READ; 
 
-// Duty cycles for steering and motor PWM signals
-static unsigned char steerDC = 0;
-static unsigned char motorDC = 0;
+// Center position on count out of 4095 for steering and 0% throttle
+static const uint8_t STEER_CNT_NEUTRAL = 447; 
+static const uint8_t MOTOR_CNT_NEUTRAL = 50; // FIXME
+
+// On count out of 4095 for the steering / motor PWM signals
+static uint16_t steerCNT = STEER_CNT_NEUTRAL;
+static uint16_t motorCNT = MOTOR_CNT_NEUTRAL;
 
 // Max and min high pulse widths for the steering and motor PWM signals.
 // Units are microseconds
+/*
 static const unsigned int STEER_PW_MIN = 1140; // full right
 static const unsigned int STEER_PW_MAX = 2720; // full left
 static const unsigned int MOTOR_PW_MIN = 0; // FIXME
 static const unsigned int MOTOR_PW_MAX = 0; // FIXME
-
-// Center position for steering and 0% throttle
-static const unsigned char STEER_DC_NEUTRAL = 50; // FIXME 
-static const unsigned char MOTOR_DC_NEUTRAL = 50; // FIXME
+*/
 
 // Frequency of the steerning and motor PWM signals
-static const unsigned char PWM_FREQ = 72; // Hz
+static const float PWM_FREQ = 72.0; // Hz
 
 // The steering and motor PWM channels on the pwm module
-static const unsigned char STEER_CHANNEL = 0;
-static const unsigned char MOTOR_CHANNEL = 1;
+static const uint8_t STEER_CHANNEL = 0;
+static const uint8_t MOTOR_CHANNEL = 1;
 
 // PWM module
 Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver(PWM_I2C_ADDR);
@@ -103,17 +105,17 @@ void setup()
     mode = MODE_IDLE;
 
     // Set i2c bus address
-    Wire.begin(SELF_I2C_ADDR); 
+    //Wire.begin(SELF_I2C_ADDR); 
     
     // Register handlers for master read and write
-    Wire.onReceive(masterWriteHandler);
-    Wire.onRequest(masterReadHandler);
+    //Wire.onReceive(masterWriteHandler);
+    //Wire.onRequest(masterReadHandler);
 
-    // Start up the pwm module // FIXME
-    //pwm.begin();
+    // Start up the pwm module
+    pwm.begin();
 
-    // Set the adafruit pwm module to the correct frequency // FIXME
-    //pwm.setPWMFreq(PWM_FREQ);
+    // Set the adafruit pwm module to the correct frequency 
+    pwm.setPWMFreq(PWM_FREQ);
 
     // DEBUGGING
     #ifdef DEBUG
