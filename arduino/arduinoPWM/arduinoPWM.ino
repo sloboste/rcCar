@@ -2,18 +2,14 @@
  * Microcomputer-Controlled Car Project
  * University of Michigan - Tilbury Research Group
  * Author: Steven Sloboda
- * Version: 0.2
+ * Version: 0.3
  */
 
 // Comment out this line for production version of the code
-#define DEBUG
+#define DEBUG // FIXME
 
 #include <Adafruit_PWMServoDriver.h>
 #include <Wire.h>
-
-
-// 7-bit I2C address of Arduino (arbitrarily assigned)
-static const uint8_t SELF_I2C_ADDR = 0x34;
 
 // 7 bit I2C address of PWM module (0x40 is default)
 static const uint8_t PWM_I2C_ADDR = 0x40; 
@@ -22,11 +18,11 @@ static const uint8_t PWM_I2C_ADDR = 0x40;
 static const uint8_t SELF_CHIP_ID = 0xAD; 
 
 // Pins used on  the Arduino
-// Data line close to the red button on the receiver...
 //static const unsigned char PIN_I2C_SDA   = A4; // SDA 
 //static const unsigned char PIN_I2C_SCL   = A5; // SCL
 static const uint8_t PIN_PWM_IN_S  = 3; // Receiver channel 1 
 static const uint8_t PIN_PWM_IN_M  = 5; // Receiver channel 2
+// Data line close to the red button on the receiver...
 
 // The valid modes that the Arduino can be in 
 static const uint8_t MODE_IDLE  = 0x00;
@@ -40,29 +36,38 @@ static const uint8_t REG_STEER     = 0x02;
 static const uint8_t REG_SPEED     = 0x03;
 static const uint8_t REG_NEXT_READ = 0x04;
 
+
 // Mode that the Arduino is currently in
-static uint8_t mode;
+static uint8_t mode = MODE_IDLE;
 
 // The register that the Arduino will send contents of on next master read
 // Note REG_NEXT_READ is used to represent "invalid" i.e., not supposed to send
-static uint8_t nextRead = REG_NEXT_READ; 
+static uint8_t nextRead = REG_NEXT_READ; // FIXME not used 
 
-// Center position on count out of 4095 for steering and 0% throttle
-static const uint8_t STEER_CNT_NEUTRAL = 447; 
-static const uint8_t MOTOR_CNT_NEUTRAL = 50; // FIXME
+// Left, center, and right on count out of 4095 for steerCNT
+static const uint16_t STEER_CNT_MAXLEFT = 570; 
+static const uint16_t STEER_CNT_NEUTRAL = 447; 
+static const uint16_t STEER_CNT_MAXRIGHT = 350; 
+
+// Forward, stop, reverse on count out of 4095 for motorCNT
+static const uint16_t MOTOR_CNT_MAXFOR = 750; // FIXME approx
+static const uint16_t MOTOR_CNT_NEUTRAL = 445;
+static const uint16_t MOTOR_CNT_MAXREV = 220; // FIXME approx
 
 // On count out of 4095 for the steering / motor PWM signals
 static uint16_t steerCNT = STEER_CNT_NEUTRAL;
 static uint16_t motorCNT = MOTOR_CNT_NEUTRAL;
 
+// Pulse with in us of the steering / motor PWM signals
+uint32_t steerPW = 0; // us
+uint32_t motorPW = 0; // us
+
 // Max and min high pulse widths for the steering and motor PWM signals.
 // Units are microseconds
-/*
 static const unsigned int STEER_PW_MIN = 1140; // full right
 static const unsigned int STEER_PW_MAX = 2720; // full left
-static const unsigned int MOTOR_PW_MIN = 0; // FIXME
-static const unsigned int MOTOR_PW_MAX = 0; // FIXME
-*/
+static const unsigned int MOTOR_PW_MIN = 1304; // full finger extend
+static const unsigned int MOTOR_PW_MAX = 2650; // full finger contract (trigger pull)
 
 // Frequency of the steerning and motor PWM signals
 static const float PWM_FREQ = 72.0; // Hz
@@ -101,15 +106,8 @@ void setup()
     pinMode(PIN_LED, OUTPUT);
     digitalWrite(PIN_LED, LED_state);
 
-    // Initialize mode // FIXME
+    // Initialize mode
     mode = MODE_IDLE;
-
-    // Set i2c bus address
-    //Wire.begin(SELF_I2C_ADDR); 
-    
-    // Register handlers for master read and write
-    //Wire.onReceive(masterWriteHandler);
-    //Wire.onRequest(masterReadHandler);
 
     // Start up the pwm module
     pwm.begin();
@@ -135,37 +133,82 @@ void loop()
     //Serial.print("Entered loop()\n");
     #endif
 
+    // Take in mode command from serial
+    if (Serial.available() > 0) {
+        char c = Serial.read();
+        Serial.print("c = "); Serial.println(c);
+        if (c == 'I') {
+            mode = MODE_IDLE;
+            Serial.print("mode = "); Serial.println(mode);
+        } else if (c == 'R') {
+            mode = MODE_RC;
+            Serial.print("mode = "); Serial.println(mode);
+        } else if (c== 'P') {
+            mode = MODE_RPI;
+            Serial.print("mode = "); Serial.println(mode);
+        } else if (mode == MODE_RPI) {
+            if (c == 'l') {
+                steerCNT += 10;   
+                Serial.print("steerCNT = "); Serial.println(steerCNT);
+            } else if (c == 'r') {
+                steerCNT -= 10;   
+                Serial.print("steerCNT = "); Serial.println(steerCNT);
+            } else if (c == 'f') {
+                motorCNT += 10;   
+                Serial.print("motorCNT = "); Serial.println(motorCNT);
+            } else if (c == 'b') {
+                motorCNT -= 10;   
+                Serial.print("motorCNT = "); Serial.println(motorCNT);
+            }
+        }
+        Serial.println("done available");
+    }
+
     // Take appropriate action based on mode
     switch (mode) {
 
     case MODE_RC:
-        // Intercept PWM duty cycles from radio reciever
-        interceptPWM(steerDC, motorDC);
+        // Read pulse width of the steering and motor signals
+        steerPW = pulseIn(PIN_PWM_IN_S, HIGH); // microseconds
+        motorPW = pulseIn(PIN_PWM_IN_M, HIGH); // microseconds
+
+        // DEBUGGING
+        //Serial.print("steerPW = "); Serial.println(steerPW);
+        Serial.print("motorPW = "); Serial.println(motorPW);
             
+        // Convert to on count
+        steerCNT = map(steerPW, STEER_PW_MIN, STEER_PW_MAX, 
+                       STEER_CNT_MAXRIGHT, STEER_CNT_MAXLEFT);
+        motorCNT = map(motorPW, MOTOR_PW_MIN, MOTOR_PW_MAX,
+                       MOTOR_CNT_MAXREV, MOTOR_CNT_MAXFOR); 
+
+        // DEBUGGING
+        //Serial.print("steerCNT = "); Serial.println(steerCNT);
+        //Serial.print("motorCNT = "); Serial.println(motorCNT);
+
         // Write these values to the motor controller and steering servo
-        writeToSteerServo(steerDC);
-        writeToMotorController(motorDC);
-        
+        pwm.setPin(STEER_CHANNEL, steerCNT, false);
+        pwm.setPin(MOTOR_CHANNEL, motorCNT, false);
+
         break;
                 
     case MODE_RPI:
-        // steerDC will have been set by RPI command
-        // motorDC will have been set by RPI command
+        // On counts will be set by this point
 
         // Write these values to the motor controller and steering servo
-        writeToSteerServo(steerDC);
-        writeToMotorController(motorDC);
+        pwm.setPin(STEER_CHANNEL, steerCNT, false);
+        pwm.setPin(MOTOR_CHANNEL, motorCNT, false);
         
         break;
 
     default: // (mode == MODE_IDLE) || (mode == some_undefined_value) 
         // Make sure steering and motor servos are not doing anything
-        steerDC = STEER_DC_NEUTRAL; 
-        motorDC = MOTOR_DC_NEUTRAL;
+        steerCNT = STEER_CNT_NEUTRAL; 
+        motorCNT = MOTOR_CNT_NEUTRAL;
 
         // Write these values to the motor controller and steering servo
-        writeToSteerServo(steerDC);
-        writeToMotorController(motorDC);
+        pwm.setPin(STEER_CHANNEL, steerCNT, false);
+        pwm.setPin(MOTOR_CHANNEL, motorCNT, false);
 
         break;
         
@@ -193,93 +236,10 @@ void loop()
 } // loop
 
 
-/* Public: Read the PWM signals that are being sent from the radio transmitter
- *         to the car's radio receiver.
- *
- * Note: The steering servo operates on ?.?V logic with a frequency of ??.???Hz
- *       and a duty cycle between ?? and ?? percent.
- *
- *       The motor controller operates on ?.?V logic with a frequency of 
- *       ??.???Hz and a duty cycle between ?? and ?? percent.
- *
- * steering - Will hold the duty cycle of the PWM signal intended for the
- *            steering servo when the function returns.
- *
- * motor - Will hold the duty cycle of the PWM signal intended for the motor
- *         controller when the function returns. 
- */
-void interceptPWM(unsigned char &steering, unsigned char &motor) // FIXME
-{
-    // DEBUGGING
-    //Serial.print("Enter interceptPWM()\n");
-    
-    // Read pulse width of the steering and motor signals
-    unsigned int s = pulseIn(PIN_PWM_IN_S, HIGH); // microseconds
-    unsigned int m = pulseIn(PIN_PWM_IN_M, HIGH); // microseconds
-
-    // DEBUGGING
-    //Serial.print("steering pulse width (ms) = ");
-    //Serial.println((float)s / 1000.0);
-    //Serial.print("motor pulse width (ms) = ");
-    //Serial.println((float)m/ 1000.0);
-    //Serial.println();
-
-    // Convert the pulse width of the high pulse to a percentage 
-    steering = (unsigned char) map(s, STEER_PW_MIN, STEER_PW_MAX, 0, 100);
-    motor = (unsigned char) map(m, MOTOR_PW_MIN, MOTOR_PW_MAX, 0, 100);
-    
-    return;
-} // interceptPWM
 
 
-/* Public: Change the PWM signal that is being sent to the steering servo to
- *         the given duty cycle.
- *
- * Note: The steering servo operates on ?.?V logic with a frequency of ??.???Hz
- *       and a duty cycle between ?? and ?? percent.
- *
- * dutyCycle - The duty cycle of the PWM signal that the steering servo will
- *            recieve after the call to this function.
- */
-void writeToSteerServo(unsigned char dutyCycle) // FIXME
-{
-    // DEBUGGING
-    //Serial.print("Enter writeToSteerServo()\n");
-    
-    // Convert duty cycle to on/off count
-    unsigned short on = 0; // Signal starts on by default
-    unsigned short off = map(dutyCycle, 0, 100, 0, 4095);
-
-    // Tell the pwm module to generate the waveform
-    //pwm.setPWM(STEER_CHANNEL, 0, 0); // FIXME
-
-    return;
-} // writeToSteerServo
 
 
-/* Public: Change the PWM signal that is being sent to the motor controller to
- *         the given duty cycle.
- *
- * Note: The motor controller operates on ?.?V logic with a frequency of 
- *       ??.???Hz and a duty cycle between ?? and ?? percent.
- *
- * dutyCycle - The duty cycle of the PWM signal that the steering servo will
- *            recieve after the call to this function.
- */
-void writeToMotorController(unsigned char dutyCycle) // FIXME
-{
-    // DEBUGGING
-    //Serial.print("Enter writeToMotorController)\n");
-    
-    // Convert duty cycle to on/off count
-    unsigned short on = 0; // Signal starts on by default
-    unsigned short off = map(dutyCycle, 0, 100, 0, 4095);
-
-    // Tell the pwm module to generate the waveform
-    //pwm.setPWM(MOTOR_CHANNEL, 0, 0); // FIXME
-
-    return;
-} //writeToMotorController
 
 
 /* Private: Called when the i2c master reads from the Arduino. A master read is
@@ -306,7 +266,7 @@ void masterReadHandler()
         Serial.print("nextRead was REG_STEER\n");
     
         // Send the steering servo duty cycle
-        Wire.write(steerDC); 
+        //Wire.write(steerDC); 
         
         break;
     
@@ -315,7 +275,7 @@ void masterReadHandler()
         Serial.print("nextRead was REG_SPEED\n");
     
         // Send the motor controller duty cycle
-        Wire.write(motorDC); 
+        //Wire.write(motorDC); 
 
         break;
         
@@ -393,10 +353,10 @@ void masterWriteHandler(int numBytes)
                 // FIXME convert percentage and direction to duty cycle
                 if (direction == /*FIXME*/ 0) { // forward
 
-                    steerDC = (unsigned char) map(percent, 0, 100, /*FIXME*/0,0); 
+                    //steerDC = (unsigned char) map(percent, 0, 100, /*FIXME*/0,0); 
                 } else { // reverse
 
-                    steerDC = (unsigned char) map(percent, 0, 100, /*FIXME*/0,0);
+                    //steerDC = (unsigned char) map(percent, 0, 100, /*FIXME*/0,0);
                 }
 
             } else { // No direction or percentage specified
@@ -428,10 +388,10 @@ void masterWriteHandler(int numBytes)
                 // FIXME convert percentage and direction to duty cycle
                 if (direction == /*FIXME*/ 0) { // left
 
-                    motorDC = (unsigned char) map(percent, 0, 100, /*FIXME*/0,0); 
+                    //motorDC = (unsigned char) map(percent, 0, 100, /*FIXME*/0,0); 
                 } else { // right
 
-                    motorDC = (unsigned char) map(percent, 0, 100, /*FIXME*/0,0);
+                    //motorDC = (unsigned char) map(percent, 0, 100, /*FIXME*/0,0);
                 }
 
             } else { // No direction or percentage specified
