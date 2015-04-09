@@ -8,18 +8,17 @@ int LED_state = LOW;
 const uint8_t PWM_ADDR = 0x40;
 const uint8_t PWM_STEER = 0;
 const uint8_t PWM_MOTOR = 1;
+const uint16_t CNT_NEUTRAL = 447;
+const uint16_t CNT_MIN = 350;
+const uint16_t CNT_MAX = 570;
+uint16_t count = CNT_NEUTRAL;
 Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver(PWM_ADDR);
 
 void setup()
 {
     Serial.begin(9600);
-    //pinMode(3, INPUT);
     pinMode(13, OUTPUT);
     digitalWrite(13, LOW);
-    
-    //Wire.begin(0x34);
-    //Wire.onRequest(request);
-    //Wire.onReceive(receive);
 
     pwm.begin();
     pwm.setPWMFreq(72.0);
@@ -32,18 +31,15 @@ void setup()
     return;
 }
 
-unsigned int count = 0;
-bool desc = false;
-//const int PW_MIN = 1140; //us
-//const int PW_MAX = 2720; //us
-const int CNT_MIN = 350;
-const int CNT_MAX = 570;
- 
-
-//uint32_t x = 447;
-
 void loop()
 {    
+
+    // Write to steer servo
+    int n = map(count, 0, 100, CNT_MIN, CNT_MAX); 
+    pwm.setPin(PWM_STEER, n, false);
+    pwm.setPin(PWM_MOTOR, n, false);
+
+
     // Blink led to indicate that the board is working
     unsigned long curMili = millis();
     if ( (curMili - prevMili) > interval) { // blink led
@@ -51,32 +47,6 @@ void loop()
             LED_state = HIGH;
         } else {
             LED_state = LOW;
-            
-            // pwm stuff
-            if (desc) {
-                if (count == 0) {
-                    desc = false;
-                    ++count;
-                } else {
-                    --count;
-                }
-            } else {
-                if (count == 100) {
-                    desc = true;
-                    --count;
-                } else {
-                    ++count;
-                }
-            }
-
-            int n = map(count, 0, 100, CNT_MIN, CNT_MAX); 
-            pwm.setPin(PWM_STEER, n, false);
-            pwm.setPin(PWM_MOTOR, n, false);
-            /*
-            pwm.setPin(PWM_STEER, x, false);
-            pwm.setPin(PWM_MOTOR, x, false);
-            */
-
         }
         prevMili = curMili;
         digitalWrite(13, LED_state); 
@@ -84,39 +54,61 @@ void loop()
         prevMili = 0;
     } 
 
-/*
-    if (Serial.available() > 0) {
-        char c = Serial.read();
-        Serial.println(c);
-        if (c == '+') {
-            x += 10;
-        } else if (c == '-') {
-            x -= 10;
-        }
-        Serial.print("x = "); Serial.println(x);
-    }
-    */
-
     return;
 }
 
-void request()
+void serialEvent()
 {
-    Serial.println("request");
-    Wire.write(0xAD);
-}
+    char cmd;
+    char dir;
+    uint8_t percent;
+    String responseStr;
+    bool success = true;
 
-void receive(int howMany)
-{
-    Serial.print("receive ");
-    Serial.print(howMany);
-    Serial.println(" bytes");
-    for (int i = 0; i < howMany; ++i) {
-        Serial.print("byte number ");
-        Serial.print(i);
-        Serial.print(" = ");
-        int x = Wire.read();
-        Serial.println(x);
+    // Read in command type
+    if (Serial.available() > 0) {
+        cmd = Serial.read();
+        Serial.println(cmd); // DEBUGGING FIXME
     }
+    // Check command type
+    if (cmd == 'A') { // Set mode idle
+        //mode = MODE_IDLE;
+        responseStr = "Set mode idle";             
+    } else if (cmd == 'B') { // Set mode rc
+        //mode = MODE_RC;
+        responseStr = "Set mode rc";             
+    } else if (cmd == 'C') { // Set mode rpi
+        //mode = MODE_RPI;
+        responseStr = "Set mode rpi";             
+    } else if (cmd == 'D') { // Set steer dir, % 
+        if (Serial.available () >= 3) {
+            dir = Serial.read();
+            percent = (uint8_t) Serial.read(); 
+            responseStr = "Set steer";             
+        } else {
+            responseStr = "X";
+        }
+    } else if (cmd == 'E') { // Set motor dir, %
+        if (Serial.available () >= 3) {
+            dir = Serial.read();
+            percent = (uint8_t) Serial.read(); 
+            responseStr = "Set motor";             
+        } else {
+            responseStr = "X";
+        }
+    } else if (cmd == 'F') { // Return steer dir, %
+        // FIXME
+        responseStr = "Return steer";             
+    } else if (cmd == 'G') { // Return motor dir, %
+        // FIXME
+        responseStr = "Return motor";             
+    } else { // Invalid cmd
+        responseStr = "X";
+    }
+
+    // Send response
+    Serial.println(responseStr);
+
+    return;
 }
 
