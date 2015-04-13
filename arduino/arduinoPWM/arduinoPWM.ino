@@ -10,48 +10,47 @@
 #include <Wire.h>
 
 // 7 bit I2C address of PWM module (0x40 is default)
-static const uint8_t PWM_I2C_ADDR = 0x40; 
+const uint8_t PWM_I2C_ADDR = 0x40; 
 
 // 8-bit identification number (arbitrarily assigned) of Arduino
-static const uint8_t SELF_CHIP_ID = 0xAD; 
+const uint8_t SELF_CHIP_ID = 0xAD; 
 
 // Pins used on  the Arduino
-//static const unsigned char PIN_I2C_SDA   = A4; // SDA 
-//static const unsigned char PIN_I2C_SCL   = A5; // SCL
-static const uint8_t PIN_PWM_IN_S  = 3; // Receiver channel 1 
-static const uint8_t PIN_PWM_IN_M  = 5; // Receiver channel 2
+//const unsigned char PIN_I2C_SDA   = A4; // SDA 
+//const unsigned char PIN_I2C_SCL   = A5; // SCL
+const uint8_t PIN_PWM_IN_S  = 3; // Receiver channel 1 
+const uint8_t PIN_PWM_IN_M  = 5; // Receiver channel 2
 // Data line close to the red button on the receiver...
 
 // The valid modes that the Arduino can be in 
-static const uint8_t MODE_IDLE  = 0x00;
-static const uint8_t MODE_RC    = 0x01;
-static const uint8_t MODE_RPI   = 0x02;
-static const uint8_t MODE_DEBUG = 0x03;
+const uint8_t MODE_IDLE  = 0x00;
+const uint8_t MODE_RC    = 0x01;
+const uint8_t MODE_RPI   = 0x02;
 
 // The "registers" in the Arduino that the I2C master can w/r 
-static const uint8_t REG_ID        = 0x00;
-static const uint8_t REG_MODE      = 0x01;
-static const uint8_t REG_STEER     = 0x02;
-static const uint8_t REG_SPEED     = 0x03;
-static const uint8_t REG_NEXT_READ = 0x04;
+const uint8_t REG_ID        = 0x00;
+const uint8_t REG_MODE      = 0x01;
+const uint8_t REG_STEER     = 0x02;
+const uint8_t REG_SPEED     = 0x03;
+const uint8_t REG_NEXT_READ = 0x04;
 
 
 // Mode that the Arduino is currently in
-static uint8_t mode = MODE_IDLE;
+uint8_t mode = MODE_IDLE;
 
 // Left, center, and right on count out of 4095 for steerCNT
-static const uint16_t STEER_CNT_MAXLEFT = 570; 
-static const uint16_t STEER_CNT_NEUTRAL = 447; 
-static const uint16_t STEER_CNT_MAXRIGHT = 350; 
+const uint16_t STEER_CNT_MAXLEFT = 570; 
+const uint16_t STEER_CNT_NEUTRAL = 447; 
+const uint16_t STEER_CNT_MAXRIGHT = 350; 
 
 // Forward, stop, reverse on count out of 4095 for motorCNT
-static const uint16_t MOTOR_CNT_MAXFOR = 750; // FIXME approx
-static const uint16_t MOTOR_CNT_NEUTRAL = 445;
-static const uint16_t MOTOR_CNT_MAXREV = 220; // FIXME approx
+const uint16_t MOTOR_CNT_MAXFOR = 750; // FIXME approx
+const uint16_t MOTOR_CNT_NEUTRAL = 445;
+const uint16_t MOTOR_CNT_MAXREV = 220; // FIXME approx
 
 // On count out of 4095 for the steering / motor PWM signals
-static uint16_t steerCNT = STEER_CNT_NEUTRAL;
-static uint16_t motorCNT = MOTOR_CNT_NEUTRAL;
+uint16_t steerCNT = STEER_CNT_NEUTRAL;
+uint16_t motorCNT = MOTOR_CNT_NEUTRAL;
 
 // Pulse with in us of the steering / motor PWM signals
 uint32_t steerPW = 0; // us
@@ -59,30 +58,39 @@ uint32_t motorPW = 0; // us
 
 // Max and min high pulse widths for the steering and motor PWM signals.
 // Units are microseconds
-static const unsigned int STEER_PW_MIN = 1140; // full right
-static const unsigned int STEER_PW_MAX = 2720; // full left
-static const unsigned int MOTOR_PW_MIN = 1304; // full finger extend
-static const unsigned int MOTOR_PW_MAX = 2650; // full finger contract (trigger pull)
+const unsigned int STEER_PW_MIN = 1140; // full right
+const unsigned int STEER_PW_MAX = 2720; // full left
+const unsigned int MOTOR_PW_MIN = 1304; // full finger extend
+const unsigned int MOTOR_PW_MAX = 2650; // full finger contract (trigger pull)
 
 // Frequency of the steerning and motor PWM signals
-static const float PWM_FREQ = 72.0; // Hz
+const float PWM_FREQ = 72.0; // Hz
 
 // The steering and motor PWM channels on the pwm module
-static const uint8_t STEER_CHANNEL = 0;
-static const uint8_t MOTOR_CHANNEL = 1;
+const uint8_t STEER_CHANNEL = 0;
+const uint8_t MOTOR_CHANNEL = 1;
 
 // PWM module
 Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver(PWM_I2C_ADDR);
 
 // LED blinking stuff
-static const unsigned char PIN_LED = 13; 
-static int LED_state = LOW;
-static unsigned long prevMili = 0;
-static unsigned long interval = 500;
+const unsigned char PIN_LED = 13; 
+int LED_state = LOW;
+unsigned long prevMili = 0;
+unsigned long interval = 500;
 
 // Command stuff
-const uint8_t cmdBufLen = 128;
+const uint8_t cmdBufLen = 8;
 char cmdBuf[cmdBufLen];
+struct cmdStruct {
+    char func;
+    char modeOrDir;
+    uint8_t percent;
+    bool valid;
+};
+struct cmdStruct cmd;
+const uint8_t respBufLen = 8;
+char respBuf[respBufLen];
 
 
 /* Arduino setup function. Runs on device power on before the loop function is
@@ -106,6 +114,9 @@ void setup()
     pwm.begin();
     pwm.setPWMFreq(PWM_FREQ);
 
+    // Init cmd
+    cmd.valid = false;
+
     // DEBUGGING
     Serial.print("Exiting setup()\n");
 
@@ -117,49 +128,11 @@ void setup()
  */
 void loop()
 {
-    // Get debug commands from serial
-    if (mode == MODE_DEBUG) {
-        if (Serial.available() > 0) {
-            char c = Serial.read();
-            Serial.print("c = "); Serial.println(c);
-            if (c == 'I') {
-                mode = MODE_IDLE;
-                Serial.print("mode = "); Serial.println(mode);
-            } else if (c == 'R') {
-                mode = MODE_RC;
-                Serial.print("mode = "); Serial.println(mode);
-            } else if (c== 'P') {
-                mode = MODE_RPI;
-                Serial.print("mode = "); Serial.println(mode);
-            } else if (mode == MODE_RPI) {
-                if (c == 'l') {
-                    steerCNT += 10;   
-                    Serial.print("steerCNT = "); Serial.println(steerCNT);
-                } else if (c == 'r') {
-                    steerCNT -= 10;   
-                    Serial.print("steerCNT = "); Serial.println(steerCNT);
-                } else if (c == 'f') {
-                    motorCNT += 10;   
-                    Serial.print("motorCNT = "); Serial.println(motorCNT);
-                } else if (c == 'b') {
-                    motorCNT -= 10;   
-                    Serial.print("motorCNT = "); Serial.println(motorCNT);
-                }
-            }
-            Serial.println("done available");
-        }
-    }
-
-    // Take in command from serial FIXME
-    if ( (Serial.available() > 0) && (mode != MODE_DEBUG) ) {
-        Serial.readBytesUntil('\0', cmdBuf, cmdBufLen);
-        char * segment = strtok(cmdBuf, " ");
-        while (segment != NULL) {
-            Serial.println(segment); 
-            segment = strtok(NULL, " ");
-        }
-        Serial.println(cmdBuf); // FIXME print() not println
-        Serial.println("------------");
+    // Get RPI command from serial
+    if (false) {
+        getCmdDebug();
+    } else {
+        getCmd();
     }
 
     // Get on count values based on mode
@@ -191,6 +164,169 @@ void loop()
     pwm.setPin(STEER_CHANNEL, steerCNT, false);
     pwm.setPin(MOTOR_CHANNEL, motorCNT, false);
 
+    // Let us see if the board is running the code
+    blinkLED();
+
+} // loop
+
+void getCmd()
+{
+    // Take in command from serial
+    cmd.valid = false;
+    if (Serial.available() > 0) {
+        memset(cmdBuf, '\0', cmdBufLen);
+        Serial.readBytesUntil('\0', cmdBuf, cmdBufLen);
+        //Serial.println(cmdBuf);
+        char * segment = strtok(cmdBuf, " \0");
+        for (uint8_t i = 0; segment != NULL; ++i) {
+            //Serial.print("segment = "); Serial.println(segment);
+            if (i == 0) { // func
+                memcpy(&cmd.func, segment, 1); 
+            } else if (i == 1) { // mode, dir, or null
+                if (segment[0] != NULL) { // dir
+                    memcpy(&cmd.modeOrDir, segment, 1);
+                }
+            } else if (i == 2) { // percent or null
+                char p[4] = "\0\0\0";
+                if (segment[1] == '\0') { 
+                    memcpy(p, segment, 1);
+                    cmd.percent = atoi(p) ;
+                } else if (segment[2] == '\0') {
+                     memcpy(p, segment, 2);
+                     cmd.percent = atoi(p);
+                } else if (segment[3] == '\0') {
+                     memcpy(p, segment, 3);
+                     cmd.percent = atoi(p);
+                }
+            } else {
+                //Serial.println("ERROR: malformed request");
+            }
+            segment = strtok(NULL, " \0");
+        }
+        cmd.valid = true;
+        Serial.print("func = "); Serial.println(cmd.func);
+        Serial.print("modeOrDir = "); Serial.println(cmd.modeOrDir);
+        Serial.print("percent = "); Serial.println(cmd.percent);
+        Serial.print("valid = "); Serial.println(cmd.valid);
+        Serial.println("------------");
+    }
+     
+    // Execute command 
+    if (!cmd.valid) cmd.func = 'X';
+    switch (cmd.func) {
+    case 'A': // set mode
+        if (cmd.modeOrDir == 'P') mode = MODE_RPI; 
+        else if (cmd.modeOrDir == 'R') mode = MODE_RC; 
+        else if (cmd.modeOrDir == 'I') mode = MODE_IDLE; 
+        // FIXME response
+        //Serial.print("A\0");
+        break;
+    case 'B': // set steer
+        // Convert to on count
+        if (cmd.modeOrDir == 'L') {
+            steerCNT = map(cmd.percent, 0, 100, 
+                           STEER_CNT_NEUTRAL, STEER_CNT_MAXLEFT);
+        } else if (cmd.modeOrDir == 'R') {
+            steerCNT = map(cmd.percent, 0, 100, 
+                           STEER_CNT_NEUTRAL, STEER_CNT_MAXRIGHT);
+        }
+        // FIXME response
+        //Serial.print("B\0");
+        break;
+    case 'C': // set motor
+        if (cmd.modeOrDir == 'F') {
+            steerCNT = map(cmd.percent, 0, 100, 
+                           MOTOR_CNT_NEUTRAL, MOTOR_CNT_MAXFOR);
+        } else if (cmd.modeOrDir == 'B') {
+            steerCNT = map(cmd.percent, 0, 100, 
+                           MOTOR_CNT_NEUTRAL, MOTOR_CNT_MAXREV);
+        }
+        // FIXME response
+        //Serial.print("A\0");
+        break;
+    case 'D': // get steer
+        // FIXME response
+        respBuf[0] = cmd.func;
+        respBuf[1] = ' ';
+        if (steerCNT > STEER_CNT_NEUTRAL) {
+            respBuf[2] = 'L';
+            itoa(map(steerCNT, STEER_CNT_NEUTRAL, STEER_CNT_MAXLEFT, 0, 100),
+                 respBuf, 4
+            );
+        } else {
+            respBuf[2] = 'R';
+            itoa(map(steerCNT, STEER_CNT_NEUTRAL, STEER_CNT_MAXRIGHT, 0, 100),
+                 respBuf, 4
+            );
+        }
+        respBuf[3] = ' '; 
+        respBuf[7] = '\0'; 
+        Serial.print(respBuf); 
+        break;
+    case 'E': // get motor
+        // FIXME response
+        respBuf[0] = cmd.func;
+        respBuf[1] = ' ';
+        if (motorCNT > MOTOR_CNT_NEUTRAL) {
+            respBuf[2] = 'F';
+            itoa(map(motorCNT, MOTOR_CNT_NEUTRAL, MOTOR_CNT_MAXFOR, 0, 100),
+                 respBuf, 4
+            );
+        } else {
+            respBuf[2] = 'B';
+            itoa(map(motorCNT, MOTOR_CNT_NEUTRAL, MOTOR_CNT_MAXREV, 0, 100),
+                 respBuf, 4
+            );
+        }
+        respBuf[3] = ' '; 
+        respBuf[7] = '\0'; 
+        Serial.print(respBuf);
+        break;
+    default:
+        // Do nothing
+        // FIXME response
+        break;
+    }
+
+    return;
+}
+
+void getCmdDebug()
+{
+    // Get debug commands from serial
+    if (Serial.available() > 0) {
+        char c = Serial.read();
+        Serial.print("c = "); Serial.println(c);
+        if (c == 'I') {
+            mode = MODE_IDLE;
+            Serial.print("mode = "); Serial.println(mode);
+        } else if (c == 'R') {
+            mode = MODE_RC;
+            Serial.print("mode = "); Serial.println(mode);
+        } else if (c== 'P') {
+            mode = MODE_RPI;
+            Serial.print("mode = "); Serial.println(mode);
+        } else if (mode == MODE_RPI) {
+            if (c == 'l') {
+                 steerCNT += 10;   
+                 Serial.print("steerCNT = "); Serial.println(steerCNT);
+            } else if (c == 'r') {
+                steerCNT -= 10;   
+                 Serial.print("steerCNT = "); Serial.println(steerCNT);
+            } else if (c == 'f') {
+                 motorCNT += 10;   
+                 Serial.print("motorCNT = "); Serial.println(motorCNT);
+            } else if (c == 'b') {
+                 motorCNT -= 10;   
+                 Serial.print("motorCNT = "); Serial.println(motorCNT);
+            }
+        }
+        Serial.println("done available");
+    }
+}
+
+void blinkLED()
+{
     // Blink led to indicate that the board is working
     unsigned long curMili = millis();
     if ( (curMili - prevMili) > interval) { // blink led
@@ -204,6 +340,5 @@ void loop()
     } else if (prevMili > curMili) { // overflow occured
         prevMili = 0;
     } 
-
-} // loop
+}
 
