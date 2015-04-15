@@ -45,7 +45,7 @@ const uint16_t STEER_CNT_MAXRIGHT = 350;
 
 // Forward, stop, reverse on count out of 4095 for motorCNT
 const uint16_t MOTOR_CNT_MAXFOR = 750; // FIXME approx
-const uint16_t MOTOR_CNT_NEUTRAL = 445;
+const uint16_t MOTOR_CNT_NEUTRAL = 440;
 const uint16_t MOTOR_CNT_MAXREV = 220; // FIXME approx
 
 // On count out of 4095 for the steering / motor PWM signals
@@ -91,7 +91,6 @@ struct cmdStruct {
 struct cmdStruct cmd;
 const uint8_t respBufLen = 8;
 char respBuf[respBufLen];
-
 
 /* Arduino setup function. Runs on device power on before the loop function is
  * called.
@@ -204,11 +203,13 @@ void getCmd()
             segment = strtok(NULL, " \0");
         }
         cmd.valid = true;
+        /*
         Serial.print("func = "); Serial.println(cmd.func);
         Serial.print("modeOrDir = "); Serial.println(cmd.modeOrDir);
         Serial.print("percent = "); Serial.println(cmd.percent);
         Serial.print("valid = "); Serial.println(cmd.valid);
         Serial.println("------------");
+        */
     }
      
     // Execute command 
@@ -235,10 +236,10 @@ void getCmd()
         break;
     case 'C': // set motor
         if (cmd.modeOrDir == 'F') {
-            steerCNT = map(cmd.percent, 0, 100, 
+            motorCNT = map(cmd.percent, 0, 100, 
                            MOTOR_CNT_NEUTRAL, MOTOR_CNT_MAXFOR);
         } else if (cmd.modeOrDir == 'B') {
-            steerCNT = map(cmd.percent, 0, 100, 
+            motorCNT = map(cmd.percent, 0, 100, 
                            MOTOR_CNT_NEUTRAL, MOTOR_CNT_MAXREV);
         }
         // FIXME response
