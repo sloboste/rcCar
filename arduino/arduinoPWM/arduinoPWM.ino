@@ -1,10 +1,8 @@
 /* Arduino PWM 
  * Microcomputer-Controlled Car Project
  * University of Michigan - Tilbury Research Group
- * Author: Steven Sloboda
  * Version: 1.0
  */
-
 
 #include <Adafruit_PWMServoDriver.h>
 #include <Wire.h>
@@ -205,8 +203,6 @@ void getCmd()
         if (cmd.modeOrDir == 'P') mode = MODE_RPI; 
         else if (cmd.modeOrDir == 'R') mode = MODE_RC; 
         else if (cmd.modeOrDir == 'I') mode = MODE_IDLE; 
-        // FIXME response
-        //Serial.print("A\0");
         break;
     case 'B': // set steer
         // Convert to on count
@@ -217,8 +213,6 @@ void getCmd()
             steerCNT = map(cmd.percent, 0, 100, 
                            STEER_CNT_NEUTRAL, STEER_CNT_MAXRIGHT);
         }
-        // FIXME response
-        //Serial.print("B\0");
         break;
     case 'C': // set motor
         if (cmd.modeOrDir == 'F') {
@@ -228,11 +222,9 @@ void getCmd()
             motorCNT = map(cmd.percent, 0, 100, 
                            MOTOR_CNT_NEUTRAL, MOTOR_CNT_MAXREV);
         }
-        // FIXME response
-        //Serial.print("A\0");
         break;
+    /*
     case 'D': // get steer
-        // FIXME response
         respBuf[0] = cmd.func;
         respBuf[1] = ' ';
         if (steerCNT > STEER_CNT_NEUTRAL) {
@@ -251,7 +243,6 @@ void getCmd()
         Serial.print(respBuf); 
         break;
     case 'E': // get motor
-        // FIXME response
         respBuf[0] = cmd.func;
         respBuf[1] = ' ';
         if (motorCNT > MOTOR_CNT_NEUTRAL) {
@@ -269,9 +260,9 @@ void getCmd()
         respBuf[7] = '\0'; 
         Serial.print(respBuf);
         break;
+    */
     default:
         // Do nothing
-        // FIXME response
         break;
     }
 

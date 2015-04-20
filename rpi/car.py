@@ -1,5 +1,10 @@
 # car.py
 # module for usb serial communication with the Arduino on the rc car
+#
+# Microcomputer-Controlled Car Project
+# University of Michigan - Tilbury Research Group
+# Version 1.0
+#
 
 import serial
 from time import sleep
@@ -8,7 +13,7 @@ from time import sleep
 class Car:
     def __init__(self):
         # USB serial port on the RPI that is connected to the Arduino
-        #FIXME rpi port
+        #FIXME This will need to be adjusted for the usb port on the RPi
         self.serialport = serial.Serial("/dev/ttyUSB0", 9600, timeout=0.5)
 
     # Set the control mode of the car on the Arduino
