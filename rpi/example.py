@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-import time
+from time import sleep
 
 # Import the rc car module
 from car import Car
@@ -15,11 +15,11 @@ print("Done testing")
 
 # Drive in a figure-8
 car.setMode("rpi")
-car.setMotor("forward", 15)
+car.setMotor("forward", 5)
 while True:
     # FIXME this might not work......
-    car.setSteer("right", 30)
+    car.setSteer("right", 50)
     sleep(5)
-    car.setMotor("left", 30)
+    car.setSteer("left", 50)
     sleep(5)
 
