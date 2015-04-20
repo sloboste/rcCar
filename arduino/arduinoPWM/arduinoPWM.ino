@@ -2,7 +2,7 @@
  * Microcomputer-Controlled Car Project
  * University of Michigan - Tilbury Research Group
  * Author: Steven Sloboda
- * Version: 0.3
+ * Version: 1.0
  */
 
 
@@ -11,9 +11,6 @@
 
 // 7 bit I2C address of PWM module (0x40 is default)
 const uint8_t PWM_I2C_ADDR = 0x40; 
-
-// 8-bit identification number (arbitrarily assigned) of Arduino
-const uint8_t SELF_CHIP_ID = 0xAD; 
 
 // Pins used on  the Arduino
 //const unsigned char PIN_I2C_SDA   = A4; // SDA 
@@ -26,14 +23,6 @@ const uint8_t PIN_PWM_IN_M  = 5; // Receiver channel 2
 const uint8_t MODE_IDLE  = 0x00;
 const uint8_t MODE_RC    = 0x01;
 const uint8_t MODE_RPI   = 0x02;
-
-// The "registers" in the Arduino that the I2C master can w/r 
-const uint8_t REG_ID        = 0x00;
-const uint8_t REG_MODE      = 0x01;
-const uint8_t REG_STEER     = 0x02;
-const uint8_t REG_SPEED     = 0x03;
-const uint8_t REG_NEXT_READ = 0x04;
-
 
 // Mode that the Arduino is currently in
 uint8_t mode = MODE_IDLE;
@@ -73,13 +62,13 @@ const uint8_t MOTOR_CHANNEL = 1;
 // PWM module
 Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver(PWM_I2C_ADDR);
 
-// LED blinking stuff
-const unsigned char PIN_LED = 13; 
+// LED blinking
+const uint8_t PIN_LED = 13; 
 int LED_state = LOW;
 unsigned long prevMili = 0;
 unsigned long interval = 500;
 
-// Command stuff
+// Serial command structure
 const uint8_t cmdBufLen = 8;
 char cmdBuf[cmdBufLen];
 struct cmdStruct {
@@ -128,11 +117,8 @@ void setup()
 void loop()
 {
     // Get RPI command from serial
-    if (false) {
-        getCmdDebug();
-    } else {
-        getCmd();
-    }
+    getCmd();
+    //getCmdDebug();
 
     // Get on count values based on mode
     if (mode == MODE_RC) {
