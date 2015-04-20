@@ -1,0 +1,10 @@
+Send motor and steer data to RPi
+
+Python function to log data on RPi
+
+Solder the perma-proto
+
+Interface with gamepad
+
+Do steering angle and speed calibration tests
+
