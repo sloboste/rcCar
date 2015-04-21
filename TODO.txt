@@ -1,10 +1,12 @@
-Send motor and steer data to RPi
+1. Bring in mini USB type B cable
 
-Python function to log data on RPi
+2. Send motor and steer data to RPi
 
-Solder the perma-proto
+3. Python function to log data on RPi
 
-Interface with gamepad
+4. Solder the perma-proto
 
-Do steering angle and speed calibration tests
+5. Do steering angle and speed calibration tests
+
+6. Interface with gamepad
 
