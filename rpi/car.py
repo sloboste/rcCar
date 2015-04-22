@@ -6,15 +6,60 @@
 # Version 1.0
 #
 
+import threading
+import csv
 import serial
 from time import sleep
+from mutex import Mutex
 
 # Represents the rc car
 class Car:
-    def __init__(self):
+    # Construct the Car object
+    #
+    # doLogging - True --> log data to csvLogFilename at 1Hz, False --> no log
+    #
+    # csvLogFilename - full path to the csv file to which to write the log
+    #
+    def __init__(self, doLogging, csvLogFilename):
         # USB serial port on the RPI that is connected to the Arduino
-        #FIXME This will need to be adjusted for the usb port on the RPi
+        # Note: may need to be adjusted for the usb port on the RPi
         self.serialport = serial.Serial("/dev/ttyUSB0", 9600, timeout=0.5)
+        # Local data
+        self.dataLock = threading.Lock()
+        self.localDataValid = False
+        self.mode = "idle"
+        self.localSteerPerc = 0
+        self.localThrottlePerc = 0
+        # Log parameters
+        self.doLog = doLogging
+        self.logName = csvLogFilename
+        self.lobBufMax = 30
+        # FIXME
+
+    
+    # FIXME 
+    #
+    def logData(self):
+        filehandle = None
+        csvwriter = None
+        # Write to buffer to log if full
+        if (len(self.logBuf) == self.logBufMax): 
+            filehandle = open('templog.csv', 'a')
+            csvwriter = csv.writer(self.filehandle)
+        # Write new data to log
+        if (self.mode == "idle"):
+            m = 0
+        elif (self.mode == "rc"):
+            m = 1
+        elif (self.mode == "rpi"):
+            m = 2
+        tup = self.getData()
+        row = [m, tup[0], tup[1]]    
+        self.logBuf.append(row)
+
+    # FIXME
+    def close(self):
+        self.filehandle.close()
 
     # Set the control mode of the car on the Arduino
     #
@@ -30,74 +75,79 @@ class Car:
     def setMode(self, mode):
         if (mode == "idle"):
             self.serialport.write('A I\0')
+            self.mode = mode
         elif (mode == "rc"):
             self.serialport.write('A R\0')
+            self.mode = mode
         elif (mode == "rpi"):
             self.serialport.write('A P\0')
+            self.mode = mode
         else:
             raise ValueError("bad mode\n")
-    # Set the steering servo on the car to a specified direction and percentage
-    # of the maximum turn in that direction.
-    #
-    # direction - one of the following strings: "left" or "right"
-    #
-    # percent - an integer between 0 and 100 inclusive that indicates the
-    #           percentage of the maximum turn in the above direction
-    #
-    def setSteer(self, direction, percent):
-        pValid = True
-        percent = int(percent)
-        if ( (percent < 0) or (percent > 100) ): 
-            pValid = False
-        if (pValid):
-            if (direction == "right"):
-                self.serialport.write('B R '+str(percent)+'\0') 
-            elif (direction == "left"):
-                self.serialport.write('B L '+str(percent)+'\0') 
-            else:
-                raise ValueError("bad direction\n")
-        else:
-            raise ValueError("bad percent\n")
 
-    # Set the motor controller on the car to a specified direction and
-    # percentage of the maximum throttle in that direction.
+    # Set the steering servo angle on the car.
     #
-    # direction - one of the following strings: "forward" or "backward"
+    # percent - an integer between -100 and 100 inclusive that indicates the
+    #           percentage of the maximum turn. 
+    #           [-100, 100] --> [full left, full right]
     #
-    # percent - an integer between 0 and 100 inclusive that indicates the
-    #           percentage of the maximum throttle in the above direction
-    #
-    def setMotor(self, direction, percent):
-        pValid = True
+    def setSteer(self, percent):
+        if (self.mode != "rpi"):
+            raise ValueError("bad mode\n")
         percent = int(percent)
-        if ( (percent < 0) or (percent > 100) ): 
-            pValid = False
-        if (pValid):
-            if (direction == "forward"):
-                self.serialport.write('C F '+str(percent)+'\0') 
-            elif (direction == "backward"):
-                self.serialport.write('C B '+str(percent)+'\0') 
-            else:
-                raise ValueError("bad direction\n")
-        else:
+        if ( (percent < -100) or (percent > 100) ): 
             raise ValueError("bad percent\n")
+        self.serialport.write('B '+str(percent)+'\0') 
+        return True
+
+    # Set the throttle on the car.
+    #
+    # percent - an integer between -100 and 100 inclusive that indicates the
+    #           percentage of the maximum throttle. 
+    #           [-100, 100] --> [full reverse, full forward]
+    #
+    def setThrottle(self, percent):
+        if (self.mode != "rpi"):
+            raise ValueError("bad mode\n")
+        percent = int(percent)
+        if ( (percent < -100) or (percent > 100) ): 
+            raise ValueError("bad percent\n")
+        self.serialport.write('C '+str(percent)+'\0') 
+        return True
+
+    # Get the current steering servo direction and percent.
+    # If the car is in idle mode, use local copy of data.
+    # If the car is in rc mode, poll the Arduino for data.
+    # If the car is in rpi mode, use local copy of data.
+    #
+    # Returns a tuple containing (steerPercent, throttlePercent)
+    #
+    def getData(self):
+        if ( (self.mode == "rc") or (not self.localDataValid) ):
+            self.serialport.write('D\0')
+            resp = self.serialport.readline()
+            nullchar = self.serialport.read()
+            tokens = resp.split()
+            s = int(tokens[1])
+            t = int(tokens[2])
+        else:
+            s = self.localSteerPerc
+            t = self.localThrottlePerc
+        return (s, t)
 
     # Run a test of the steering mechanism by scanning from 
-    # center-->left-->right-->center one time
+    # center-->right-->left-->center, one time
     #
     def testSteer(self):
         self.setMode("rpi")
         for x in range(0, 100):
-            self.setSteer("left", x) 
+            self.setSteer(x) 
             sleep(0.01)
-        for x in reversed(range(0, 100)):
-            self.setSteer("left", x) 
+        for x in reversed(range(-100, 100)):
+            self.setSteer(x) 
             sleep(0.01)
-        for x in range(0, 100):
-            self.setSteer("right", x) 
-            sleep(0.01)
-        for x in reversed(range(0, 100)):
-            self.setSteer("right", x) 
+        for x in range(-100, 0):
+            self.setSteer(x) 
             sleep(0.01)
         self.setMode("idle")
     
@@ -108,17 +158,17 @@ class Car:
     def testMotor(self):
         self.setMode("rpi")
         for x in range(0, 30):
-            self.setMotor("forward", x) 
+            self.setMotor(x) 
             sleep(0.1)
         for x in reversed(range(0, 30)):
-            self.setMotor("forward",x) 
+            self.setMotor(x) 
             sleep(0.1)
         sleep(3)
-        for x in range(0, 100):
-            self.setMotor("backward", x) 
+        for x in reversed(range(-100, 0)):
+            self.setMotor(x) 
             sleep(0.01)
-        for x in reversed(range(0, 100)):
-            self.setMotor("backward", x) 
+        for x in range(-100, 0):
+            self.setMotor(x) 
             sleep(0.01)
         self.setMode("idle")
 

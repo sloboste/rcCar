@@ -67,16 +67,18 @@ unsigned long prevMili = 0;
 unsigned long interval = 500;
 
 // Serial command structure
-const uint8_t cmdBufLen = 8;
+const uint8_t cmdBufLen = 6;
 char cmdBuf[cmdBufLen];
 struct cmdStruct {
     char func;
-    char modeOrDir;
-    uint8_t percent;
+    char mode;
+    int8_t percent;
     bool valid;
 };
 struct cmdStruct cmd;
-const uint8_t respBufLen = 8;
+
+// Serial response
+const uint8_t respBufLen = 13;
 char respBuf[respBufLen];
 
 /* Arduino setup function. Runs on device power on before the loop function is
@@ -102,9 +104,6 @@ void setup()
 
     // Init cmd
     cmd.valid = false;
-
-    // DEBUGGING
-    Serial.print("Exiting setup()\n");
 
     return;
 }
@@ -156,111 +155,107 @@ void getCmd()
 {
     // Take in command from serial
     cmd.valid = false;
-    if (Serial.available() > 0) {
+    if (Serial.available()) {
         memset(cmdBuf, '\0', cmdBufLen);
         Serial.readBytesUntil('\0', cmdBuf, cmdBufLen);
         //Serial.println(cmdBuf);
         char * segment = strtok(cmdBuf, " \0");
         for (uint8_t i = 0; segment != NULL; ++i) {
-            //Serial.print("segment = "); Serial.println(segment);
+            //Serial.print("i = "); Serial.print(i);
+            //Serial.print("; segment = "); Serial.println(segment);
             if (i == 0) { // func
-                memcpy(&cmd.func, segment, 1); 
-            } else if (i == 1) { // mode, dir, or null
-                if (segment[0] != NULL) { // dir
-                    memcpy(&cmd.modeOrDir, segment, 1);
-                }
-            } else if (i == 2) { // percent or null
-                char p[4] = "\0\0\0";
-                if (segment[1] == '\0') { 
-                    memcpy(p, segment, 1);
-                    cmd.percent = atoi(p) ;
-                } else if (segment[2] == '\0') {
-                     memcpy(p, segment, 2);
-                     cmd.percent = atoi(p);
-                } else if (segment[3] == '\0') {
-                     memcpy(p, segment, 3);
-                     cmd.percent = atoi(p);
-                }
-            } else {
-                //Serial.println("ERROR: malformed request");
+                memcpy(&cmd.func, segment, 1);
+            } else if ( (i == 1) && (cmd.func == 'A') ) { // mode
+                memcpy(&cmd.mode, segment, 1);
+            } else { // percent
+                //Serial.print("num digits = "); Serial.println(strlen(segment));
+                cmd.percent = atoi(segment);
             }
             segment = strtok(NULL, " \0");
         }
         cmd.valid = true;
-        /*
+        /* 
         Serial.print("func = "); Serial.println(cmd.func);
-        Serial.print("modeOrDir = "); Serial.println(cmd.modeOrDir);
+        Serial.print("mode = "); Serial.println(cmd.mode);
         Serial.print("percent = "); Serial.println(cmd.percent);
         Serial.print("valid = "); Serial.println(cmd.valid);
         Serial.println("------------");
-        */
+        */ 
     }
      
     // Execute command 
     if (!cmd.valid) cmd.func = 'X';
     switch (cmd.func) {
     case 'A': // set mode
-        if (cmd.modeOrDir == 'P') mode = MODE_RPI; 
-        else if (cmd.modeOrDir == 'R') mode = MODE_RC; 
-        else if (cmd.modeOrDir == 'I') mode = MODE_IDLE; 
+        if (cmd.mode == 'P') mode = MODE_RPI; 
+        else if (cmd.mode == 'R') mode = MODE_RC; 
+        else if (cmd.mode == 'I') mode = MODE_IDLE; 
         break;
     case 'B': // set steer
+        if (mode != MODE_RPI) break;
         // Convert to on count
-        if (cmd.modeOrDir == 'L') {
-            steerCNT = map(cmd.percent, 0, 100, 
-                           STEER_CNT_NEUTRAL, STEER_CNT_MAXLEFT);
-        } else if (cmd.modeOrDir == 'R') {
+        if (cmd.percent < 0) {
+            steerCNT = map(cmd.percent, -100, 0, 
+                           STEER_CNT_MAXLEFT, STEER_CNT_NEUTRAL);
+        } else {
             steerCNT = map(cmd.percent, 0, 100, 
                            STEER_CNT_NEUTRAL, STEER_CNT_MAXRIGHT);
         }
         break;
-    case 'C': // set motor
-        if (cmd.modeOrDir == 'F') {
+    case 'C': // set motor throttle
+        if (mode != MODE_RPI) break;
+        if (cmd.percent > 0) {
             motorCNT = map(cmd.percent, 0, 100, 
                            MOTOR_CNT_NEUTRAL, MOTOR_CNT_MAXFOR);
-        } else if (cmd.modeOrDir == 'B') {
-            motorCNT = map(cmd.percent, 0, 100, 
-                           MOTOR_CNT_NEUTRAL, MOTOR_CNT_MAXREV);
+        } else {
+            motorCNT = map(cmd.percent, -100, 0, 
+                           MOTOR_CNT_MAXREV, MOTOR_CNT_NEUTRAL);
         }
         break;
-    /*
-    case 'D': // get steer
-        respBuf[0] = cmd.func;
+    case 'D': // get steering and motor throttle data  
+        uint8_t len;
+        len = 2;
+        // Func
+        respBuf[0] = 'C';
+        // Space
         respBuf[1] = ' ';
+        // Steering
+        char num[5]; memset(num, '\0', 5);
         if (steerCNT > STEER_CNT_NEUTRAL) {
-            respBuf[2] = 'L';
-            itoa(map(steerCNT, STEER_CNT_NEUTRAL, STEER_CNT_MAXLEFT, 0, 100),
-                 respBuf, 4
-            );
+            itoa(map(steerCNT, STEER_CNT_NEUTRAL, STEER_CNT_MAXLEFT, 0, -100),
+                 num, 0);
         } else {
-            respBuf[2] = 'R';
             itoa(map(steerCNT, STEER_CNT_NEUTRAL, STEER_CNT_MAXRIGHT, 0, 100),
-                 respBuf, 4
-            );
+                 respBuf, 0);
         }
-        respBuf[3] = ' '; 
-        respBuf[7] = '\0'; 
-        Serial.print(respBuf); 
-        break;
-    case 'E': // get motor
-        respBuf[0] = cmd.func;
-        respBuf[1] = ' ';
+        memcpy(respBuf+len, num, strlen(num));
+        len+=strlen(num);
+        // Space
+        respBuf[len] = ' '; 
+        ++len;
+        // Motor throttle
+        memset(num, '\0', 5);
         if (motorCNT > MOTOR_CNT_NEUTRAL) {
-            respBuf[2] = 'F';
             itoa(map(motorCNT, MOTOR_CNT_NEUTRAL, MOTOR_CNT_MAXFOR, 0, 100),
-                 respBuf, 4
-            );
+                 num, 0);
         } else {
-            respBuf[2] = 'B';
-            itoa(map(motorCNT, MOTOR_CNT_NEUTRAL, MOTOR_CNT_MAXREV, 0, 100),
-                 respBuf, 4
-            );
+            itoa(map(motorCNT, MOTOR_CNT_NEUTRAL, MOTOR_CNT_MAXREV, 0, -100),
+                 respBuf, 0);
         }
-        respBuf[3] = ' '; 
-        respBuf[7] = '\0'; 
-        Serial.print(respBuf);
+        memcpy(respBuf+len, num, strlen(num));
+        len+=strlen(num);
+        // Newline
+        respBuf[len] = '\n'; 
+        ++len;
+        // Null terminate
+        respBuf[len] = '\0'; 
+        ++len;
+        // Send response FIXME
+        //Serial.print("len = "); Serial.println(len);
+        //Serial.print("respBuf = "); 
+        //Serial.write((uint8_t *) respBuf, len);
+        Serial.write("E -100 100\n\0");
         break;
-    */
     default:
         // Do nothing
         break;
