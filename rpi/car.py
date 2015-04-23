@@ -176,7 +176,6 @@ class Car:
             time.sleep(0.01)
         self.setMode("idle")
 
-    # FIXME
     # Begin logging data in a csv file. The logging code runs in another thread
     #
     # logFilename - the full path the csv file in which to log data. May or

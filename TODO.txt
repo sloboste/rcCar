@@ -1,7 +1,5 @@
 1. Bring in mini USB type B cable
 
-3. Python plot log data on RPi
-
 4. Solder the perma-proto
 
 5. Do steering angle and speed calibration tests
