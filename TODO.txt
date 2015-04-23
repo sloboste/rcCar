@@ -1,8 +1,6 @@
 1. Bring in mini USB type B cable
 
-2. Send motor and steer data to RPi
-
-3. Python function to log data on RPi
+3. Python plot log data on RPi
 
 4. Solder the perma-proto
 

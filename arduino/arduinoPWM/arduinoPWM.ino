@@ -184,6 +184,8 @@ void getCmd()
     }
      
     // Execute command 
+    uint8_t len;
+    char num[5]; 
     if (!cmd.valid) cmd.func = 'X';
     switch (cmd.func) {
     case 'A': // set mode
@@ -213,51 +215,42 @@ void getCmd()
         }
         break;
     case 'D': // get steering and motor throttle data  
-        uint8_t len;
-        len = 2;
+        // respBuf char[13]; char num[5]; 
         // Func
-        respBuf[0] = 'C';
+        respBuf[0] = 'E';
         // Space
         respBuf[1] = ' ';
+        len = 2;
         // Steering
-        char num[5]; memset(num, '\0', 5);
+        memset(num, '\0', 5);
         if (steerCNT > STEER_CNT_NEUTRAL) {
-            itoa(map(steerCNT, STEER_CNT_NEUTRAL, STEER_CNT_MAXLEFT, 0, -100),
-                 num, 0);
+            itoa(map(steerCNT, STEER_CNT_MAXLEFT, STEER_CNT_NEUTRAL, -100, 0),
+                 num, 10);
         } else {
             itoa(map(steerCNT, STEER_CNT_NEUTRAL, STEER_CNT_MAXRIGHT, 0, 100),
-                 respBuf, 0);
+                 num, 10);
         }
         memcpy(respBuf+len, num, strlen(num));
-        len+=strlen(num);
+        len += strlen(num);
         // Space
-        respBuf[len] = ' '; 
-        ++len;
+        respBuf[len++] = ' '; 
         // Motor throttle
         memset(num, '\0', 5);
         if (motorCNT > MOTOR_CNT_NEUTRAL) {
             itoa(map(motorCNT, MOTOR_CNT_NEUTRAL, MOTOR_CNT_MAXFOR, 0, 100),
-                 num, 0);
+                 num, 10);
         } else {
-            itoa(map(motorCNT, MOTOR_CNT_NEUTRAL, MOTOR_CNT_MAXREV, 0, -100),
-                 respBuf, 0);
+            itoa(map(motorCNT, MOTOR_CNT_MAXREV, MOTOR_CNT_NEUTRAL, -100, 0),
+                 num, 10);
         }
         memcpy(respBuf+len, num, strlen(num));
-        len+=strlen(num);
+        len += strlen(num);
         // Newline
-        respBuf[len] = '\n'; 
-        ++len;
+        respBuf[len++] = '\n'; 
         // Null terminate
-        respBuf[len] = '\0'; 
-        ++len;
-        // Send response FIXME
-        Serial.print("len = "); Serial.println(len);
-        Serial.print("respBuf = "); 
-        for (uint8_t i = 0; i < len; ++i) {
-            Serial.print(respBuf[i]); 
-        }
+        respBuf[len++] = '\0'; 
+        // Send response
         Serial.write((uint8_t *) respBuf, len);
-        //Serial.write("E -100 100\n\0");
         break;
     default:
         // Do nothing

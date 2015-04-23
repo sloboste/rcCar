@@ -1,7 +1,5 @@
 #!/usr/bin/python
 
-# FIXME THIS DOESNT WORK ANYMORE!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
 from time import sleep
 
 # Import the rc car module
@@ -10,18 +8,24 @@ from car import Car
 # Instantiate the car object
 car = Car()
 
+# Begin logging data
+car.beginLog('examplelog.csv', 0.5)
+
 # Test the system
 car.testSteer()
-car.testMotor()
+car.testThrottle()
 print("Done testing")
 
+# Begin logging data
+car.endLog()
+
 # Drive in a figure-8
-car.setMode("rpi")
-car.setMotor("forward", 5)
-while True:
+#car.setMode("rpi")
+#car.setMotor("forward", 5)
+#while True:
     # FIXME this might not work......
-    car.setSteer("right", 50)
-    sleep(5)
-    car.setSteer("left", 50)
-    sleep(5)
+    #car.setSteer(50)
+    #sleep(5)
+    #car.setSteer(-50)
+    #sleep(5)
 
