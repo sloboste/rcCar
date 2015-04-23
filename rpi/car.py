@@ -190,13 +190,19 @@ class Car:
     def beginLog(self, logFilename, approxPeriod):
         # FIXME vaildate args
         self.__logCond.acquire()
+        self.__logName = logFilename
         self.__doLog = True
         self.__approxPeriod = approxPeriod
         self.__filehandle = open(logFilename, 'a') 
         self.__csvwriter = csv.writer(self.__filehandle) 
-        self.__logCond.release()
         # Start periodic logging
-        self.__logData()
+        thrd = threading.Timer(self.__approxPeriod, self.__logData)
+        self.__curLogThread = thrd 
+        thrd.daemon = True
+        thrd.start()
+        self.__logCond.release()
+        # FIXME need some delay to allow the logging thread to start
+        time.sleep(0.5)
 
     # Write the timestamp (in miliseconds), current mode, steering percent, and
     # motor throttle to the log 
@@ -219,16 +225,21 @@ class Car:
         self.__csvwriter.writerow(row)
         # Re-call the method with another thread if logging not ended
         while (not self.__doLog):
+            self.__filehandle.close()
             self.__logCond.wait()
+        self.__filehandle = open(self.__logName, 'a') 
+        self.__csvwriter = csv.writer(self.__filehandle) 
+        thrd = threading.Timer(self.__approxPeriod, self.__logData)
+        self.__curLogThread = thrd 
+        thrd.daemon = True
+        thrd.start()
         self.__logCond.release()
-        threading.Timer(self.__approxPeriod, self.__logData).start()
 
-    # FIXME
-    # Terminate logging and close the logfile
+    # Terminate logging
     #
     def endLog(self):
+        self.__curLogThread.join() 
         self.__logCond.acquire()
-        self.__filehandle.close()
         self.__doLogging = False
         self.__logCond.release()
 
