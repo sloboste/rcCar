@@ -251,10 +251,13 @@ void getCmd()
         respBuf[len] = '\0'; 
         ++len;
         // Send response FIXME
-        //Serial.print("len = "); Serial.println(len);
-        //Serial.print("respBuf = "); 
-        //Serial.write((uint8_t *) respBuf, len);
-        Serial.write("E -100 100\n\0");
+        Serial.print("len = "); Serial.println(len);
+        Serial.print("respBuf = "); 
+        for (uint8_t i = 0; i < len; ++i) {
+            Serial.print(respBuf[i]); 
+        }
+        Serial.write((uint8_t *) respBuf, len);
+        //Serial.write("E -100 100\n\0");
         break;
     default:
         // Do nothing

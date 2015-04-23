@@ -16,50 +16,82 @@ from mutex import Mutex
 class Car:
     # Construct the Car object
     #
-    # doLogging - True --> log data to csvLogFilename at 1Hz, False --> no log
-    #
-    # csvLogFilename - full path to the csv file to which to write the log
-    #
-    def __init__(self, doLogging, csvLogFilename):
+    def __init__(self):
         # USB serial port on the RPI that is connected to the Arduino
         # Note: may need to be adjusted for the usb port on the RPi
-        self.serialport = serial.Serial("/dev/ttyUSB0", 9600, timeout=0.5)
+        self.__serialport = serial.Serial("/dev/ttyUSB0", 9600, timeout=0.5)
         # Local data
-        self.dataLock = threading.Lock()
-        self.localDataValid = False
-        self.mode = "idle"
-        self.localSteerPerc = 0
-        self.localThrottlePerc = 0
+        self.__dataLock = threading.Lock()
+        self.__localDataValid = False
+        self.__mode = "idle"
+        self.__localSteerPerc = 0
+        self.__localThrottlePerc = 0
         # Log parameters
-        self.doLog = doLogging
-        self.logName = csvLogFilename
-        self.lobBufMax = 30
-        # FIXME
-
-    
-    # FIXME 
-    #
-    def logData(self):
-        filehandle = None
-        csvwriter = None
-        # Write to buffer to log if full
-        if (len(self.logBuf) == self.logBufMax): 
-            filehandle = open('templog.csv', 'a')
-            csvwriter = csv.writer(self.filehandle)
-        # Write new data to log
-        if (self.mode == "idle"):
-            m = 0
-        elif (self.mode == "rc"):
-            m = 1
-        elif (self.mode == "rpi"):
-            m = 2
-        tup = self.getData()
-        row = [m, tup[0], tup[1]]    
-        self.logBuf.append(row)
+        self.__logCond = threading.Condition()
+        self.__doLog = doLogging
+        self.__logName = ""
+        self.__approxPeriod = 0
+        self.__filehandle = None 
+        self.__csvwriter = None
 
     # FIXME
-    def close(self):
-        self.filehandle.close()
+    # Begin logging data in a csv file
+    #
+    # logFilename - the full path the csv file in which to log data. May or
+    #               may not already exist
+    #
+    # approxPeriod - The approximate period to take measurements. This is an
+    #                approximation because python thread creation takes time
+    #                and we aren't using an RTOS.
+    #                Noe: if this is too small, i.e., << 1s,
+    #
+    def beginLog(self, logFilename, approxPeriod):
+        # FIXME vaildate args
+        self.__logCond.acquire()
+        self.__doLog = True
+        self.__logCond.release()
+        self.__approxPeriod = approxPeriod
+        self.__filehandle = open(logFilename, 'a') 
+        self.__csvwriter = csv.writer(self.filehandle) 
+        # Start periodic logging
+        self.__logData()
+
+
+    # FIXME 
+    # Write the timestamp (in miliseconds limited to a 1 day timespan), 
+    # current mode, steering percent,
+    # and motor throttle to the log 
+    #
+    def __logData(self):
+        # Write new data to log
+        if (self.__mode == "idle"):
+            m = 0
+        elif (self.__mode == "rc"):
+            m = 1
+        elif (self.__mode == "rpi"):
+            m = 2
+        tup = self.getData()
+        t = time.datetime.now()
+        tms = t.microseconds/1e3 + t.seconds*1e3 + t.minutes*60*1e3
+        tms += t.hours*3600*1e3
+        row = [tms, m, tup[0], tup[1]]    
+        self.__csvwriter.writerow(row)
+        # Re-call the method if logging not ended
+        self.__logCond.acquire()
+        while (not self.__doLog):
+            self.__logCond.wait()
+        self.__logCond.release()
+        threading.Timer(self.__approxPeriod, self.__logData)
+        
+
+    # FIXME
+    # Terminate logging and close the logfile
+    #
+    def endLog(self):
+        self.__filehandle.close()
+        self.__logCond.acquire()
+        self.__doLogging = False
+        self.__logCond.release()
 
     # Set the control mode of the car on the Arduino
     #
@@ -74,14 +106,14 @@ class Car:
     #
     def setMode(self, mode):
         if (mode == "idle"):
-            self.serialport.write('A I\0')
-            self.mode = mode
+            self.__serialport.write('A I\0')
+            self.__mode = mode
         elif (mode == "rc"):
-            self.serialport.write('A R\0')
-            self.mode = mode
+            self.__serialport.write('A R\0')
+            self.__mode = mode
         elif (mode == "rpi"):
-            self.serialport.write('A P\0')
-            self.mode = mode
+            self.__serialport.write('A P\0')
+            self.__mode = mode
         else:
             raise ValueError("bad mode\n")
 
@@ -92,12 +124,12 @@ class Car:
     #           [-100, 100] --> [full left, full right]
     #
     def setSteer(self, percent):
-        if (self.mode != "rpi"):
+        if (self.__mode != "rpi"):
             raise ValueError("bad mode\n")
         percent = int(percent)
         if ( (percent < -100) or (percent > 100) ): 
             raise ValueError("bad percent\n")
-        self.serialport.write('B '+str(percent)+'\0') 
+        self.__serialport.write('B '+str(percent)+'\0') 
         return True
 
     # Set the throttle on the car.
@@ -107,12 +139,12 @@ class Car:
     #           [-100, 100] --> [full reverse, full forward]
     #
     def setThrottle(self, percent):
-        if (self.mode != "rpi"):
+        if (self._mode != "rpi"):
             raise ValueError("bad mode\n")
         percent = int(percent)
         if ( (percent < -100) or (percent > 100) ): 
             raise ValueError("bad percent\n")
-        self.serialport.write('C '+str(percent)+'\0') 
+        self.__serialport.write('C '+str(percent)+'\0') 
         return True
 
     # Get the current steering servo direction and percent.
@@ -123,16 +155,22 @@ class Car:
     # Returns a tuple containing (steerPercent, throttlePercent)
     #
     def getData(self):
-        if ( (self.mode == "rc") or (not self.localDataValid) ):
-            self.serialport.write('D\0')
-            resp = self.serialport.readline()
-            nullchar = self.serialport.read()
+        if ( (self.__mode == "rc") or (not self.__localDataValid) ):
+            self.__serialport.write('D\0')
+            resp = self.__serialport.readline()
+            nullchar = self.__serialport.read()
             tokens = resp.split()
             s = int(tokens[1])
             t = int(tokens[2])
+            self.__dataLock.acquire()
+            self.__localSteerPerc = s
+            self.__localThrottlePerc = t
+            self.__dataLock.release()
         else:
-            s = self.localSteerPerc
-            t = self.localThrottlePerc
+            self.__dataLock.acquire()
+            s = self.__localSteerPerc
+            t = self.__localThrottlePerc
+            self.__dataLock.release()
         return (s, t)
 
     # Run a test of the steering mechanism by scanning from 
