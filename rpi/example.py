@@ -1,5 +1,7 @@
 #!/usr/bin/python
 
+# FIXME THIS DOESNT WORK ANYMORE!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
 from time import sleep
 
 # Import the rc car module

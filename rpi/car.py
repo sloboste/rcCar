@@ -148,7 +148,7 @@ class Car:
     # stop-->30% forward-->stop -->100% reverse-->stop
     # Note: the motor may cut out in reverse or not move in reverse...
     #
-    def testMotor(self):
+    def testThrottle(self):
         self.setMode("rpi")
         for x in range(0, 30):
             self.setMotor(x) 
