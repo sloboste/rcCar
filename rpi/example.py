@@ -6,7 +6,7 @@ from time import sleep
 from car import Car
 
 # Instantiate the car object
-car = Car()
+car = Car("/dev/ttyUSB0")
 
 # Begin logging data
 car.beginLog('examplelog.csv', 0.5)

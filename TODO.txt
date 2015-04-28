@@ -1,8 +1,6 @@
-1. Bring in mini USB type B cable
+1. Solder the perma-proto TEST THIS....
 
-4. Solder the perma-proto
+2. Do steering angle and speed calibration tests
 
-5. Do steering angle and speed calibration tests
-
-6. Interface with gamepad
+3. Interface with gamepad
 

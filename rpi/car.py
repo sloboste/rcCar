@@ -16,10 +16,13 @@ import datetime
 class Car:
     # Construct the Car object
     #
-    def __init__(self):
+    # usbPortName - the full path to the file that acts as the usb port. For
+    #               example, "/dev/ttyUSB0"
+    #
+    def __init__(self, usbPortName):
         # USB serial port on the RPI that is connected to the Arduino
-        # Note: may need to be adjusted for the usb port on the RPi
-        self.__serialport = serial.Serial("/dev/ttyUSB0", 9600, timeout=0.5)
+        self.__usbPort = usbPortName
+        self.__serialport = serial.Serial(usbPortName, 9600, timeout=0.5)
         # Local data
         self.__dataLock = threading.Lock()
         self.__localSteerValid = False
