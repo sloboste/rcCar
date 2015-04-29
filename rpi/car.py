@@ -1,6 +1,5 @@
 # car.py
 # module for usb serial communication with the Arduino on the rc car
-#
 # Microcomputer-Controlled Car Project
 # University of Michigan - Tilbury Research Group
 # Version 1.0
@@ -10,7 +9,6 @@ import threading
 import csv
 import serial
 import time
-import datetime
 
 # Represents the rc car
 class Car:
@@ -220,8 +218,7 @@ class Car:
             m = 2
         self.__dataLock.release()
         tup = self.getData()
-        t = datetime.datetime.now()
-        tms = (t.day * 24 * 60 * 60 + t.second) * 1000 + t.microsecond / 1e3 
+        tms = time.time() * 1e3 
         row = [tms, m, tup[0], tup[1]]    
         self.__logCond.acquire()
         self.__csvwriter.writerow(row)

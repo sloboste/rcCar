@@ -1,6 +1,4 @@
-1. Solder the perma-proto TEST THIS....
+1. Do steering angle and speed calibration tests
 
-2. Do steering angle and speed calibration tests
-
-3. Interface with gamepad
+2. Update docs for gamepad control
 

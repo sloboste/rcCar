@@ -1,4 +1,5 @@
-/* Arduino PWM 
+/* ArduinoPWM.ino
+ * Program to control RC car with an Arduino 
  * Microcomputer-Controlled Car Project
  * University of Michigan - Tilbury Research Group
  * Version: 1.0
@@ -8,6 +9,7 @@
 #include <Wire.h>
 
 // 7 bit I2C address of PWM module (0x40 is default)
+// Note: changing this requires soldering the board
 const uint8_t PWM_I2C_ADDR = 0x40; 
 
 // Pins used on  the Arduino
@@ -31,9 +33,9 @@ const uint16_t STEER_CNT_NEUTRAL = 447;
 const uint16_t STEER_CNT_MAXRIGHT = 350; 
 
 // Forward, stop, reverse on count out of 4095 for motorCNT
-const uint16_t MOTOR_CNT_MAXFOR = 750; // FIXME approx
-const uint16_t MOTOR_CNT_NEUTRAL = 440;
-const uint16_t MOTOR_CNT_MAXREV = 220; // FIXME approx
+const uint16_t MOTOR_CNT_MAXFOR = 750; 
+const uint16_t MOTOR_CNT_NEUTRAL = 390;
+const uint16_t MOTOR_CNT_MAXREV = 220; 
 
 // On count out of 4095 for the steering / motor PWM signals
 uint16_t steerCNT = STEER_CNT_NEUTRAL;
