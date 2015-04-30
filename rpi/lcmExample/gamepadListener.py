@@ -1,5 +1,6 @@
 import lcm
 from exlcm import gamepad_t
+import time
 
 def my_handler(channel, data):
     msg = gamepad_t.decode(data)
@@ -15,6 +16,7 @@ subscription = lc.subscribe("GAMEPAD", my_handler)
 
 try:
     while True:
+        time.sleep(0.5)
         lc.handle()
 except KeyboardInterrupt:
     pass

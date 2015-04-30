@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-# Example of gamepad control of the car
+# Gamepad control of the car
 #
 
 import time
@@ -18,6 +18,8 @@ ctrl = Controller(sys.argv[1])
 
 # Car instance
 car = Car("/dev/ttyUSB0")
+car.testSteer()
+#car.testThrottle()
 car.setMode("rpi")
 car.beginLog(sys.argv[2], 0.25)
 
@@ -32,5 +34,6 @@ try:
         car.setThrottle(data[1])
         time.sleep(0.15)
 except KeyboardInterrupt:
-    car.endLog()
+    #car.endLog()
+    pass
 
