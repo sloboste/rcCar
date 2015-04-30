@@ -21,6 +21,8 @@ class Car:
         # USB serial port on the RPI that is connected to the Arduino
         self.__usbPort = usbPortName
         self.__serialport = serial.Serial(usbPortName, 9600, timeout=0.5)
+        # Must delay for 3 seconds because Arduino resets on serial connection   
+        time.sleep(3)
         # Local data
         self.__dataLock = threading.Lock()
         self.__localSteerValid = False
