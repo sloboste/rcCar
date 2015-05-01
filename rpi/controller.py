@@ -1,12 +1,19 @@
+# controller.py
+# Module for gamepad and wheel videogame controller
+# Microcomputer-Controlled Car Project
+# University of Michigan - Tilbury Research Group
+# Version 1.0
 #
-
 
 import threading
 from gamepad import gamepad_t
 import lcm
 
-# Controller
+# Represents a gamepad controller or a steering wheel controller
+#
 class Controller:
+    # Instantiate the controller
+    #
     def __init__(self, cType):
         self.__dataLock = threading.Lock()
         self.__type = cType
@@ -24,7 +31,9 @@ class Controller:
         thrd.daemon = True
         thrd.start()
 
-    # Handles gamepad / steering wheel data packet
+    # Handles gamepad / steering wheel data packet by converting the axis data
+    # to steering and throttle percentage
+    #
     def __dataHandler(self, channel, data):
         msg = gamepad_t.decode(data)
         #print ("axis 0 = %s" %str(msg.axes[0]))
@@ -42,11 +51,16 @@ class Controller:
         self.__dataLock.release()
 
     # Continuously reads lcm messages
+    #
     def __loopLCMreads(self):
         while (True):
             self.__lc.handle()
 
-    # Returns steering and throttle data to the caller 
+    # Get the steering and throttle percentage that the state of the controller
+    # is currently at
+    #
+    # Returns at tuple containing the steer percentage then throttle percentage 
+    #
     def getData(self):
         self.__dataLock.acquire()
         s = self.__s

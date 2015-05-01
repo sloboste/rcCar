@@ -49,8 +49,8 @@ uint32_t motorPW = 0; // us
 // Units are microseconds
 const unsigned int STEER_PW_MIN = 1140; // full right
 const unsigned int STEER_PW_MAX = 2720; // full left
-const unsigned int MOTOR_PW_MIN = 1304; // full finger extend
-const unsigned int MOTOR_PW_MAX = 2650; // full finger contract (trigger pull)
+const unsigned int MOTOR_PW_MIN = 1304; // full reverse 
+const unsigned int MOTOR_PW_MAX = 2650; // full forward
 
 // Frequency of the steerning and motor PWM signals
 const float PWM_FREQ = 72.0; // Hz
@@ -124,17 +124,14 @@ void loop()
         // Read pulse width of the steering and motor signals
         steerPW = pulseIn(PIN_PWM_IN_S, HIGH); // microseconds
         motorPW = pulseIn(PIN_PWM_IN_M, HIGH); // microseconds
-
         // DEBUGGING
         //Serial.print("steerPW = "); Serial.println(steerPW);
         //Serial.print("motorPW = "); Serial.println(motorPW);
-            
         // Convert to on count
         steerCNT = map(steerPW, STEER_PW_MIN, STEER_PW_MAX, 
                        STEER_CNT_MAXRIGHT, STEER_CNT_MAXLEFT);
         motorCNT = map(motorPW, MOTOR_PW_MIN, MOTOR_PW_MAX,
                        MOTOR_CNT_MAXREV, MOTOR_CNT_MAXFOR); 
-
         // DEBUGGING
         //Serial.print("steerCNT = "); Serial.println(steerCNT);
         //Serial.print("motorCNT = "); Serial.println(motorCNT);
@@ -153,6 +150,8 @@ void loop()
 
 } // loop
 
+/* Read and process a command from the serial port if there is one avaliable
+ */
 void getCmd()
 {
     // Take in command from serial
@@ -262,6 +261,11 @@ void getCmd()
     return;
 }
 
+/* Read and process a special debugging command from the serial port if there 
+ * is one avaliable
+ * Note: this is usually used with the Arudino IDE's serial monitor to closely
+ *       examine the pulse widths of the signals for calibration
+ */
 void getCmdDebug()
 {
     // Get debug commands from serial
@@ -296,6 +300,8 @@ void getCmdDebug()
     }
 }
 
+/* Blinks the led if the time interval has passed
+ */
 void blinkLED()
 {
     // Blink led to indicate that the board is working

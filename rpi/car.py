@@ -1,5 +1,5 @@
 # car.py
-# module for usb serial communication with the Arduino on the rc car
+# Module for usb serial communication with the Arduino on the rc car
 # Microcomputer-Controlled Car Project
 # University of Michigan - Tilbury Research Group
 # Version 1.0

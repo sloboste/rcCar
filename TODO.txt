@@ -1,4 +1,0 @@
-1. Do steering angle and speed calibration tests
-
-2. Update docs for gamepad control
-

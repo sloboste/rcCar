@@ -1,6 +1,10 @@
 #!/usr/bin/python
 
+# gamepadControl.py
 # Gamepad control of the car
+# Microcomputer-Controlled Car Project
+# University of Michigan - Tilbury Research Group
+# Version 1.0
 #
 
 import time
