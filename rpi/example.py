@@ -20,12 +20,11 @@ print("Done testing")
 car.endLog()
 
 # Drive in a figure-8
-#car.setMode("rpi")
-#car.setMotor("forward", 5)
-#while True:
-    # FIXME this might not work......
-    #car.setSteer(50)
-    #sleep(5)
-    #car.setSteer(-50)
-    #sleep(5)
+car.setMode("rpi")
+car.setThrottle( 5)
+while True:
+    car.setSteer(50)
+    sleep(5)
+    car.setSteer(-50)
+    sleep(5)
 
